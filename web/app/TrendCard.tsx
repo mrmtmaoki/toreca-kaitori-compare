@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import PriceTrendChart from "./PriceTrendChart";
-import { resamplePriceTrend, TREND_PERIODS, type PriceEvent, type TrendPeriodKey } from "@/lib/priceTrend";
+import { pickDefaultPeriod, resamplePriceTrend, TREND_PERIODS, type PriceEvent, type TrendPeriodKey } from "@/lib/priceTrend";
 
 function formatDateLong(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -18,7 +18,7 @@ export default function TrendCard({
   sub: string;
   events: PriceEvent[];
 }) {
-  const [period, setPeriod] = useState<TrendPeriodKey>("1m");
+  const [period, setPeriod] = useState<TrendPeriodKey>(() => pickDefaultPeriod(events));
   const [hovered, setHovered] = useState<PriceEvent | null>(null);
   const data = useMemo(() => resamplePriceTrend(events, period), [events, period]);
 

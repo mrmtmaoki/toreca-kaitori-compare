@@ -44,6 +44,21 @@ function pickBucketDays(rangeDays: number): number {
   return 30;
 }
 
+/**
+ * "1ヶ月" is the steady-state default (see resamplePriceTrend's doc comment
+ * on why 1週間 usually has too few points), but early on — before a card has
+ * 30 days of real change-event history — defaulting to 1ヶ月 would show a
+ * mostly-empty chart padded by forward-fill. Default to 1週間 until the
+ * card's own earliest known event is at least 30 days old, then switch; no
+ * manual cutover needed as real history accumulates.
+ */
+export function pickDefaultPeriod(events: PriceEvent[], today: Date = new Date()): TrendPeriodKey {
+  if (events.length === 0) return "1w";
+  const earliestDate = events.reduce((min, e) => (e.date < min ? e.date : min), events[0].date);
+  const rangeDays = Math.round((today.getTime() - new Date(earliestDate).getTime()) / 86_400_000) + 1;
+  return rangeDays < 30 ? "1w" : "1m";
+}
+
 export function resamplePriceTrend(
   events: PriceEvent[],
   periodKey: TrendPeriodKey,
