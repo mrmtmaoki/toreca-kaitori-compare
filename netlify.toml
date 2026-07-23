@@ -4,7 +4,7 @@
   # live deploy: "../data/kaitori.db" silently bundled nothing, every
   # function saw "unable to open database file" no matter which candidate
   # path web/lib/db.ts tried), so the DB is copied inside `web/` first.
-  command = "cp ../data/kaitori.db ./data/kaitori.db && npm run build"
+  command = "mkdir -p ./data && cp ../data/kaitori.db ./data/kaitori.db && npm run build"
   publish = ".next"
 
 [[plugins]]
