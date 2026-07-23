@@ -167,7 +167,12 @@ async function scrape(targetUrl: string): Promise<ScrapedPrice[]> {
     cells.each((i, td) => {
       const role = columnRoles[i];
       if (role === "image") {
-        imageUrl = $(td).find("img").first().attr("src") ?? null;
+        const src = $(td).find("img").first().attr("src") ?? null;
+        // WordPress emits these as plain "http://" even though the same
+        // path serves identically over https (confirmed) — Next's image
+        // optimizer only allowlists https for this host, so http:// URLs
+        // 400 instead of loading.
+        imageUrl = src ? src.replace(/^http:\/\//, "https://") : null;
         return;
       }
       if (role && role !== "ignore") fields[role] = $(td).text().trim();

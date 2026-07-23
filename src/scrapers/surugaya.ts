@@ -116,6 +116,58 @@ interface RawEntry {
   imageUrl: string | null;
 }
 
+const IMAGE_RESOLVE_CONCURRENCY = 5;
+
+/**
+ * suruga-ya's own <img src> is a redirect gateway (database/photo.php?...),
+ * not the image itself — it 302s to the real file on cdn.suruga-ya.jp.
+ * Netlify's Image CDN doesn't follow that redirect when transforming
+ * next/image requests (confirmed live: the gateway URL 403'd even with
+ * cdn.suruga-ya.jp itself allowlisted, while the resolved cdn URL served
+ * fine), so the redirect is resolved once here at scrape time instead.
+ */
+// suruga-ya redirects listings with no real photo to its own generic
+// placeholder graphic rather than 404ing — surfacing that (confirmed:
+// ~8% of listings resolve here) would look worse than this app's own
+// fallback icon, so it's treated the same as "no image" (null).
+const NO_PHOTO_RE = /no_photo/;
+
+async function resolveImageUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      redirect: "manual",
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; toreca-kaitori-compare/0.1)" },
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (location) {
+        if (NO_PHOTO_RE.test(location)) return null;
+        return new URL(location, url).toString();
+      }
+    }
+  } catch {
+    // Network hiccup resolving the redirect — fall back to the gateway
+    // URL below rather than dropping the image entirely.
+  }
+  return url;
+}
+
+/** Resolves every not-yet-seen imageUrl in `entries` in place, a few at a
+ * time so a single page's worth of rows doesn't fire dozens of requests
+ * at once against suruga-ya. */
+async function resolveImageUrls(entries: RawEntry[], cache: Map<string, string | null>): Promise<void> {
+  const unique = [...new Set(entries.map((e) => e.imageUrl).filter((u): u is string => !!u && !cache.has(u)))];
+  for (let i = 0; i < unique.length; i += IMAGE_RESOLVE_CONCURRENCY) {
+    const batch = unique.slice(i, i + IMAGE_RESOLVE_CONCURRENCY);
+    const resolved = await Promise.all(batch.map((u) => resolveImageUrl(u)));
+    batch.forEach((u, idx) => cache.set(u, resolved[idx]));
+  }
+  for (const entry of entries) {
+    if (entry.imageUrl && cache.has(entry.imageUrl)) entry.imageUrl = cache.get(entry.imageUrl) ?? null;
+  }
+}
+
 function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
   const results: RawEntry[] = [];
 
@@ -223,6 +275,8 @@ export const surugayaScraper: ShopScraper = {
 
       if (currentUrl) await sleep(PAGE_DELAY_MS);
     }
+
+    await resolveImageUrls(allResults, new Map());
 
     const groupHasNonKira = new Map<string, boolean>();
     for (const e of allResults) {
