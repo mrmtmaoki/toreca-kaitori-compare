@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0b0d14;
+  --bg-elevated: #12151f;
+  --bg-card: #161a26;
+  --line: #262b3a;
+  --ink: #eef0f6;
+  --ink-soft: #9aa1b5;
+  --gold: #e8b84b;
+  --gold-soft: #3a3221;
+  --best: #4fd1a5;
+  --best-soft: #123329;
+  --bg-glow: #1a2036;
+  --radius: 16px;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f4ee;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --line: #e4ded0;
+  --ink: #201d18;
+  --ink-soft: #726c5e;
+  --gold: #a9720c;
+  --gold-soft: #f6e6c2;
+  --best: #16805a;
+  --best-soft: #d9f2e6;
+  --bg-glow: #fff3d6;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-noto-sans-jp);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--bg-glow) 0%, transparent 60%), var(--bg);
+  color: var(--ink);
+  font-family: var(--font-noto-sans-jp), sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.mono {
+  font-family: var(--font-jetbrains-mono), monospace;
+}

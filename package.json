@@ -1,0 +1,28 @@
+{
+  "name": "toreca-kaitori-compare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "tsx src/run.ts",
+    "scrape:fullcomp": "tsx src/run.ts --shop=fullcomp",
+    "scrape:surugaya": "tsx src/run.ts --shop=surugaya",
+    "scrape:cardmax": "tsx src/run.ts --shop=cardmax",
+    "scrape:otachu": "tsx src/run.ts --shop=otachu",
+    "scrape:pokemon": "tsx src/run.ts --series=ポケモンカード",
+    "audit": "tsx src/audit.ts",
+    "audit:rarity": "tsx src/audit-rarity.ts",
+    "audit:cardnumber": "tsx src/audit-cardnumber.ts",
+    "audit:image": "tsx src/audit-image.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "playwright": "^1.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

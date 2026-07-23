@@ -1,0 +1,9 @@
+node_modules/
+dist/
+# Only data/kaitori.db itself is tracked (committed daily by the GitHub
+# Actions scrape workflow so it doubles as the price-history datastore) —
+# everything else in data/ (backups, journal files, scratch exports) stays
+# untracked.
+data/*
+!data/kaitori.db
+.env
