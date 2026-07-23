@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# copied in by netlify.toml's build command so included_files can bundle it
+# (Netlify's included_files can't escape the base directory) — never the
+# source of truth, that's ../data/kaitori.db at the repo root
+/data/kaitori.db
+
 # production
 /build
 

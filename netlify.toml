@@ -1,13 +1,16 @@
 [build]
   base = "web"
-  command = "npm run build"
+  # Netlify's included_files can't escape the base directory (confirmed via
+  # live deploy: "../data/kaitori.db" silently bundled nothing, every
+  # function saw "unable to open database file" no matter which candidate
+  # path web/lib/db.ts tried), so the DB is copied inside `web/` first.
+  command = "cp ../data/kaitori.db ./data/kaitori.db && npm run build"
   publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# The app reads data/kaitori.db (repo root, one level up from `base`) via a
-# read-only node:sqlite connection — needs to be bundled into the deployed
-# serverless functions explicitly, or the file won't exist at runtime.
+# Bundled into the deployed serverless function so the read-only node:sqlite
+# connection in web/lib/db.ts can open it at runtime.
 [functions]
-  included_files = ["../data/kaitori.db"]
+  included_files = ["data/kaitori.db"]
