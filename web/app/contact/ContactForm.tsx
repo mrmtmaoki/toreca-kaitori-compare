@@ -16,7 +16,7 @@ export default function ContactForm() {
     formData.forEach((value, key) => params.append(key, String(value)));
 
     try {
-      const res = await fetch("/__forms.html", {
+      const res = await fetch("/netlify-forms.html", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),
