@@ -9,7 +9,8 @@ import { CardThumb } from "../../CardExplorer";
 import TestDataNotice from "../../TestDataNotice";
 import TrendCard from "../../TrendCard";
 
-export const dynamic = "force-dynamic";
+// See app/page.tsx for why ISR (not force-dynamic) is correct here.
+export const revalidate = 3600;
 
 async function resolveCard(seriesSlug: string, cardIdParam: string) {
   const series = getSeriesBySlug(seriesSlug);
@@ -35,7 +36,7 @@ export async function generateMetadata({
   const { series, card } = resolved;
 
   const title = `${card.name} 買取価格比較｜カイトリレーダー`;
-  const description = `${card.name}の買取価格を${card.shopCount}店舗で横断比較。最高¥${card.maxPrice.toLocaleString()}。`;
+  const description = `${card.name}の買取価格を${card.shopCount}店舗で横断比較。最高¥${card.maxPrice.toLocaleString()}。価格推移チャートで相場の動きもチェックできます。`;
   const url = `${SITE_URL}/${series.slug}/${card.id}`;
 
   return {

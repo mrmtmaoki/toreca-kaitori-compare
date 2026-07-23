@@ -9,9 +9,9 @@ import GenreNav from "../GenreNav";
 import SiteFooter from "../SiteFooter";
 import StatsBar from "../StatsBar";
 
-// Data comes from a SQLite file that's updated by periodic scrapes, so this
-// page must not be statically prerendered at build time.
-export const dynamic = "force-dynamic";
+// See app/page.tsx for why ISR (not force-dynamic) is correct here — the
+// underlying DB file only changes once per Netlify deploy, not per request.
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
   return SERIES_LIST.map((s) => ({ series: s.slug }));
@@ -51,8 +51,29 @@ export default async function SeriesPage({
   const stats = getStats(series.name);
   const initialCards = topCards("shops_desc", 30, series.name);
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: series.label, item: `${SITE_URL}/${series.slug}` },
+    ],
+  };
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: initialCards.slice(0, 30).map((card, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}/${series.slug}/${card.id}`,
+      name: card.name,
+    })),
+  };
+
   return (
     <main className="flex-1">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }} />
       <div className="mx-auto max-w-6xl px-5 pt-10 pb-4 sm:pt-14">
         <Link
           href="/"

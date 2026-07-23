@@ -3,8 +3,8 @@ import { InfoPage } from "../InfoPage";
 import { SHOPS } from "@/lib/shops";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
-const title = "対応店舗一覧";
-const description = `${SITE_NAME}が価格情報を収集している買取店の一覧です。`;
+const title = "秋葉原 買取比較｜対応店舗一覧";
+const description = `秋葉原のトレカ買取店を横断比較できる${SITE_NAME}の対応店舗一覧です。`;
 
 export const metadata: Metadata = {
   title,
@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 
 export default function ShopsPage() {
   return (
-    <InfoPage title={title} lead={`現在${SHOPS.length}店舗の買取価格情報を収集しています。順次拡大予定です。`}>
+    <InfoPage
+      title={title}
+      lead={`秋葉原を中心に、現在${SHOPS.length}店舗のトレカ買取価格を一覧にまとめて比較しています。順次拡大予定です。`}
+    >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {SHOPS.map((shop) => (
           <a

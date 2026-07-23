@@ -36,9 +36,9 @@ const siteLinks = [
   { href: "/terms", label: "利用規約" },
 ];
 
-const DEFAULT_TITLE = "トレカ買取価格 一括比較｜カイトリレーダー";
+const DEFAULT_TITLE = "トレカ買取価格 一覧比較・チャート｜カイトリレーダー";
 const DEFAULT_DESCRIPTION =
-  "秋葉原のトレカ買取店の価格を横断比較。同じカードがどこで一番高く売れるか、一発で分かります。";
+  "秋葉原のトレカ(とれか)買取店の価格を一覧にまとめて比較。複数サイトを見て回らなくても、同じカードの買取価格を1画面でチェックできます。価格推移チャートで急上昇/急降下カードもひと目で分かります。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -1,13 +1,26 @@
 import Link from "next/link";
 import { getStats, topCards } from "@/lib/db";
 import { SERIES_LIST } from "@/lib/series";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import SiteFooter from "./SiteFooter";
 import StatsBar from "./StatsBar";
 import TrendingPicks from "./TrendingPicks";
 
-// Data comes from a SQLite file that's updated by periodic scrapes, so this
-// page must not be statically prerendered at build time.
-export const dynamic = "force-dynamic";
+// data/kaitori.db only actually changes once a day (bundled fresh into each
+// Netlify deploy by the scrape workflow — see netlify.toml/`included_files`
+// and .github/workflows/scrape.yml), so force-dynamic bought no real
+// freshness here, just a full SQLite round-trip on every single request.
+// Revalidating hourly caches the rendered page instead, which is a real
+// Core Web Vitals/TTFB win with no actual staleness cost.
+export const revalidate = 3600;
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+  description: "トレーディングカードの買取価格を複数店舗で横断比較できるサイト。",
+};
 
 export default function HomePage() {
   const stats = getStats();
@@ -19,6 +32,7 @@ export default function HomePage() {
 
   return (
     <main className="flex-1">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       <div className="mx-auto max-w-6xl px-5 pt-14 pb-4 sm:pt-20">
         <p className="mono mb-3 text-xs tracking-[0.25em] text-[var(--gold)] uppercase">
           Kaitori Radar
@@ -31,7 +45,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="mt-4 max-w-xl text-sm text-[var(--ink-soft)] sm:text-base">
-          秋葉原のトレカ買取店を横断検索。同じカードの買取価格を1画面で比較できます。
+          秋葉原のトレカ買取店の価格を一覧にまとめました。各サイトを見て回らなくても、同じカードの買取価格を1画面で比較できます。
         </p>
 
         <StatsBar
