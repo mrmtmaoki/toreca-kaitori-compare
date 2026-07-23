@@ -29,6 +29,9 @@
 [images]
   remote_images = [
     "https:\\/\\/www\\.suruga-ya\\.jp\\/.*",
+    # suruga-ya's photo.php URL 302s to cdn.suruga-ya.jp — see the matching
+    # comment in web/next.config.ts for why this second host is required too.
+    "https:\\/\\/cdn\\.suruga-ya\\.jp\\/.*",
     "https:\\/\\/makeshop-multi-images\\.akamaized\\.net\\/.*",
     "https:\\/\\/otachu-akiba\\.com\\/.*",
     "https:\\/\\/www\\.mercardop\\.jp\\/.*"
