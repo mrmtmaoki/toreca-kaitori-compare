@@ -6,6 +6,17 @@
   # path web/lib/db.ts tried), so the DB is copied inside `web/` first.
   command = "mkdir -p ./data && cp ../data/kaitori.db ./data/kaitori.db && npm run build"
   publish = ".next"
+  # With `base` set, Netlify's monorepo change-detection only watches the
+  # base directory — a commit touching only root-level data/kaitori.db or
+  # src/scrapers/*.ts (i.e. every daily-scrape cron commit, and any scraper
+  # fix) shows as "no changes in base directory" and gets silently
+  # canceled before building (confirmed live: this happened to the first
+  # scraper-only commit pushed after this site was set up). Since both of
+  # those root-level paths feed the deployed app (the DB via the build
+  # command above, scraper correctness via what ends up in that DB),
+  # disable the skip entirely rather than trying to enumerate every path
+  # that should count.
+  ignore = "exit 1"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
