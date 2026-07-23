@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
+import { SHOPS } from "./shops";
 
 let db: DatabaseSync | null = null;
 
@@ -30,12 +31,7 @@ export interface CardSummary {
   shopCount: number;
 }
 
-const SHOP_LABELS: Record<string, string> = {
-  fullcomp: "フルコンプ秋葉原店",
-  surugaya: "駿河屋",
-  cardmax: "カードマックス秋葉原店",
-  otachu: "おたちゅう。秋葉原店",
-};
+const SHOP_LABELS: Record<string, string> = Object.fromEntries(SHOPS.map((s) => [s.id, s.name]));
 
 function labelForShop(name: string): string {
   return SHOP_LABELS[name] ?? name;
