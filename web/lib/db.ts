@@ -152,6 +152,26 @@ export function getCardById(id: number, series?: string): CardSummary | null {
   return cards[0] ?? null;
 }
 
+export interface CardRef {
+  id: number;
+  series: string;
+}
+
+/** Lightweight id+series listing for sitemap generation — every card that
+ * has at least one price record, cheap to run even at tens of thousands of
+ * rows since it skips the price-join used by the card-detail queries above. */
+export function listAllCardRefs(): CardRef[] {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT DISTINCT c.id, c.series
+       FROM cards c
+       WHERE EXISTS (SELECT 1 FROM price_records pr WHERE pr.card_id = c.id)
+       ORDER BY c.id`
+    )
+    .all() as unknown as CardRef[];
+}
+
 export type SortMode = "shops_desc" | "price_desc" | "price_asc";
 
 export function topCards(sort: SortMode, limit = 30, series?: string): CardSummary[] {

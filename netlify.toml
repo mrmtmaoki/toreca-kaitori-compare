@@ -1,0 +1,13 @@
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# The app reads data/kaitori.db (repo root, one level up from `base`) via a
+# read-only node:sqlite connection — needs to be bundled into the deployed
+# serverless functions explicitly, or the file won't exist at runtime.
+[functions]
+  included_files = ["../data/kaitori.db"]

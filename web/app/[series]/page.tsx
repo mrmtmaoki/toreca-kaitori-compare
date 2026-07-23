@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStats, topCards } from "@/lib/db";
 import { getSeriesBySlug, SERIES_LIST } from "@/lib/series";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import CardExplorer from "../CardExplorer";
 import GenreNav from "../GenreNav";
 import SiteFooter from "../SiteFooter";
@@ -25,9 +26,16 @@ export async function generateMetadata({
   const series = getSeriesBySlug(slug);
   if (!series) return {};
 
+  const title = `${series.label}買取価格 一括比較｜カイトリレーダー`;
+  const description = `${series.tagline}。秋葉原の買取店の価格を横断比較し、同じカードがどこで一番高く売れるか一発で分かります。`;
+  const url = `${SITE_URL}/${series.slug}`;
+
   return {
-    title: `${series.label}買取価格 一括比較｜カイトリレーダー`,
-    description: `${series.tagline}。秋葉原の買取店の価格を横断比較し、同じカードがどこで一番高く売れるか一発で分かります。`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: SITE_NAME, locale: "ja_JP", type: "website" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

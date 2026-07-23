@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import TrendCard from "../TrendCard";
 import { DUMMY_TREND_CARDS, generateDummyEvents } from "@/lib/dummyTrendData";
+
+// Internal prototype page for eyeballing chart styling — not real content,
+// shouldn't be indexed or linked from anywhere public-facing.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function TrendDemoPage() {
   return (

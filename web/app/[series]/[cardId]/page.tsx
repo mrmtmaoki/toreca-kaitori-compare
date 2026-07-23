@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCardById } from "@/lib/db";
 import { getSeriesBySlug } from "@/lib/series";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { generateDummyEvents } from "@/lib/dummyTrendData";
 import { CardThumb } from "../../CardExplorer";
 import TestDataNotice from "../../TestDataNotice";
@@ -31,10 +32,26 @@ export async function generateMetadata({
   const { series: seriesSlug, cardId } = await params;
   const resolved = await resolveCard(seriesSlug, cardId);
   if (!resolved) return {};
+  const { series, card } = resolved;
+
+  const title = `${card.name} 買取価格比較｜カイトリレーダー`;
+  const description = `${card.name}の買取価格を${card.shopCount}店舗で横断比較。最高¥${card.maxPrice.toLocaleString()}。`;
+  const url = `${SITE_URL}/${series.slug}/${card.id}`;
 
   return {
-    title: `${resolved.card.name} 買取価格比較｜カイトリレーダー`,
-    description: `${resolved.card.name}の買取価格を店舗横断で比較。最高¥${resolved.card.maxPrice.toLocaleString()}。`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      locale: "ja_JP",
+      type: "website",
+      images: card.imageUrl ? [{ url: card.imageUrl }] : undefined,
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
