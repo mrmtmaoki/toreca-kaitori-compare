@@ -22,10 +22,14 @@
 # Image CDN needs its own separate allowlist here, one regex per source
 # host card images actually come from (web/next.config.ts's remotePatterns
 # list is the source of truth for which hosts these should match).
+# Netlify parses each pattern as a JS regex literal, so literal "/" needs
+# escaping too, not just ".": first fix attempt only escaped dots and still
+# 403'd live even after deploying — per Netlify's own docs the "/" in
+# "https://" and in the trailing "/.*" must be "\/" (written "\\/" in TOML).
 [images]
   remote_images = [
-    "https://www\\.suruga-ya\\.jp/.*",
-    "https://makeshop-multi-images\\.akamaized\\.net/.*",
-    "https://otachu-akiba\\.com/.*",
-    "https://www\\.mercardop\\.jp/.*"
+    "https:\\/\\/www\\.suruga-ya\\.jp\\/.*",
+    "https:\\/\\/makeshop-multi-images\\.akamaized\\.net\\/.*",
+    "https:\\/\\/otachu-akiba\\.com\\/.*",
+    "https:\\/\\/www\\.mercardop\\.jp\\/.*"
   ]
