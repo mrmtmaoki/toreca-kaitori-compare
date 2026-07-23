@@ -36,8 +36,43 @@ export function openDb(path = "data/kaitori.db") {
     CREATE INDEX IF NOT EXISTS idx_price_records_card ON price_records (card_id);
     CREATE INDEX IF NOT EXISTS idx_price_records_shop_card_time
       ON price_records (shop_id, card_id, scraped_at DESC);
+
+    -- Confirms whether a shop+series was actually reachable on a given day,
+    -- independent of whether any price changed — insertPriceRecord's
+    -- dedup means "no new price_records that day" is ambiguous between
+    -- "checked, nothing moved" and "the scrape itself failed" (e.g. a
+    -- shop/network hiccup, seen live during this project's own automation
+    -- setup). One row per scrape target per run, not per card: a page
+    -- fetch failure affects every card on that page identically, so
+    -- card-level granularity would just multiply row count for no benefit.
+    CREATE TABLE IF NOT EXISTS scrape_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shop_id INTEGER NOT NULL REFERENCES shops(id),
+      series TEXT NOT NULL,
+      succeeded INTEGER NOT NULL,
+      ran_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_scrape_runs_shop_series_time
+      ON scrape_runs (shop_id, series, ran_at DESC);
   `);
   return db;
+}
+
+/**
+ * Records whether a shop+series was successfully reached on this run — see
+ * the scrape_runs table comment above for why this is tracked separately
+ * from price_records. `succeeded` means "at least one page for this
+ * shop+series returned data"; a run with some pages failing and others
+ * succeeding still counts as succeeded (partial data is still real
+ * confirmation for the cards that were covered).
+ */
+export function logScrapeRun(
+  db: DatabaseSync,
+  input: { shopId: number; series: string; succeeded: boolean }
+) {
+  db.prepare(
+    `INSERT INTO scrape_runs (shop_id, series, succeeded, ran_at) VALUES (?, ?, ?, ?)`
+  ).run(input.shopId, input.series, input.succeeded ? 1 : 0, new Date().toISOString());
 }
 
 export function upsertShop(db: DatabaseSync, name: string, url: string) {

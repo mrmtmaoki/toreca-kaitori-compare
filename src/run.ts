@@ -1,4 +1,4 @@
-import { findOrCreateCard, insertPriceRecord, openDb, upsertShop } from "./db.js";
+import { findOrCreateCard, insertPriceRecord, logScrapeRun, openDb, upsertShop } from "./db.js";
 import { dynamicScrapeTargets, scrapeTargets, type ScrapeTarget } from "./targets.js";
 
 const REQUEST_DELAY_MS = 3000;
@@ -11,10 +11,13 @@ async function processTarget(db: ReturnType<typeof openDb>, target: ScrapeTarget
   const shop = upsertShop(db, target.scraper.shopId, target.shopUrl);
   console.log(`\n=== ${target.scraper.displayName}(${target.series}) ===`);
 
+  let anyPageSucceeded = false;
+
   for (const pageUrl of target.pages) {
     try {
       const prices = await target.scraper.scrape(pageUrl);
       console.log(`  ${pageUrl} -> ${prices.length} 件`);
+      anyPageSucceeded = true;
 
       for (const p of prices) {
         const cardId = findOrCreateCard(db, {
@@ -37,6 +40,8 @@ async function processTarget(db: ReturnType<typeof openDb>, target: ScrapeTarget
 
     await sleep(REQUEST_DELAY_MS);
   }
+
+  logScrapeRun(db, { shopId: shop.id, series: target.series, succeeded: anyPageSucceeded });
 }
 
 /**
@@ -91,6 +96,8 @@ async function main() {
       console.log(`  ${pages.length} セット見つかりました`);
     } catch (err) {
       console.error(`  セット一覧の取得に失敗:`, err instanceof Error ? err.message : err);
+      const shop = upsertShop(db, dynamicTarget.scraper.shopId, dynamicTarget.shopUrl);
+      logScrapeRun(db, { shopId: shop.id, series: dynamicTarget.series, succeeded: false });
       continue;
     }
     await processTarget(db, { ...dynamicTarget, pages });

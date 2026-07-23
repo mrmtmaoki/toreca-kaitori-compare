@@ -3,6 +3,7 @@ import { getStats, topCards } from "@/lib/db";
 import { SERIES_LIST } from "@/lib/series";
 import SiteFooter from "./SiteFooter";
 import StatsBar from "./StatsBar";
+import TrendingPicks from "./TrendingPicks";
 
 // Data comes from a SQLite file that's updated by periodic scrapes, so this
 // page must not be statically prerendered at build time.
@@ -39,6 +40,8 @@ export default function HomePage() {
           lastScrapedAt={stats.lastScrapedAt}
         />
       </div>
+
+      <TrendingPicks />
 
       <div className="mx-auto max-w-6xl px-5 pb-24">
         <p className="mt-10 mb-4 text-sm font-bold text-[var(--ink-soft)]">

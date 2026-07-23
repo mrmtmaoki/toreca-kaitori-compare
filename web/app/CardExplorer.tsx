@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { CardSummary, SortMode } from "@/lib/db";
 
@@ -93,7 +94,7 @@ export default function CardExplorer({
       </div>
       <p className="mt-1 mb-4 text-xs text-[var(--ink-soft)]">
         ⓘ
-        同じ店舗・同じカードでも、状態(美品/傷ありなど)やサイン入り・大会記念版などの違いにより複数の買取価格が存在する場合があります。表示は代表的な1件です。正式な金額は価格をクリックして各店舗のページでご確認ください。
+        カード名をクリックすると価格推移グラフ、価格をクリックすると各店舗のページに移動します。同じ店舗・同じカードでも、状態(美品/傷ありなど)やサイン入り・大会記念版などの違いにより複数の買取価格が存在する場合があります。表示は代表的な1件です。正式な金額は各店舗のページでご確認ください。
       </p>
 
       {cards.length === 0 && !loading && (
@@ -104,14 +105,14 @@ export default function CardExplorer({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
-          <CardTile key={card.id} card={card} />
+          <CardTile key={card.id} card={card} series={series} />
         ))}
       </div>
     </div>
   );
 }
 
-function CardTile({ card }: { card: CardSummary }) {
+function CardTile({ card, series }: { card: CardSummary; series: string }) {
   const [expanded, setExpanded] = useState(false);
   const visiblePrices = expanded ? card.prices : card.prices.slice(0, 3);
   const spread = card.maxPrice - card.minPrice;
@@ -119,11 +120,15 @@ function CardTile({ card }: { card: CardSummary }) {
   return (
     <div className="group rounded-2xl border border-[var(--line)] bg-[var(--bg-card)] p-5 transition-colors hover:border-[var(--gold)]/50">
       <div className="flex items-start gap-3">
-        <CardThumb imageUrl={card.imageUrl} name={card.name} />
+        <Link href={`/${series}/${card.id}`} className="shrink-0">
+          <CardThumb imageUrl={card.imageUrl} name={card.name} />
+        </Link>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[15px] font-bold leading-snug text-[var(--ink)]">{card.name}</h3>
+            <Link href={`/${series}/${card.id}`} className="min-w-0 hover:underline">
+              <h3 className="text-[15px] font-bold leading-snug text-[var(--ink)]">{card.name}</h3>
+            </Link>
             <span className="mono shrink-0 rounded-full bg-[var(--gold-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--gold)]">
               {card.shopCount}店舗
             </span>
@@ -193,7 +198,7 @@ function CardTile({ card }: { card: CardSummary }) {
   );
 }
 
-function CardThumb({ imageUrl, name }: { imageUrl: string | null; name: string }) {
+export function CardThumb({ imageUrl, name }: { imageUrl: string | null; name: string }) {
   const [broken, setBroken] = useState(false);
 
   if (!imageUrl || broken) {

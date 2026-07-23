@@ -136,6 +136,26 @@ export function searchCards(query: string, series?: string, limit = 60): CardSum
   return rowsToCards(rows);
 }
 
+export function getCardById(id: number, series?: string): CardSummary | null {
+  const db = getDb();
+  const seriesClause = series ? "AND c.series = ?" : "";
+  const args: (number | string)[] = series ? [id, series] : [id];
+  const rows = db
+    .prepare(
+      `${LATEST_PRICES_CTE}
+       SELECT c.id, c.canonical_name, c.rarity, c.card_number,
+              s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
+       FROM latest l
+       JOIN cards c ON c.id = l.card_id
+       JOIN shops s ON s.id = l.shop_id
+       WHERE l.rn = 1 AND c.id = ? ${seriesClause}`
+    )
+    .all(...args) as Parameters<typeof rowsToCards>[0];
+
+  const cards = rowsToCards(rows);
+  return cards[0] ?? null;
+}
+
 export type SortMode = "shops_desc" | "price_desc" | "price_asc";
 
 export function topCards(sort: SortMode, limit = 30, series?: string): CardSummary[] {

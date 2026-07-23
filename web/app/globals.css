@@ -11,6 +11,8 @@
   --gold-soft: #3a3221;
   --best: #4fd1a5;
   --best-soft: #123329;
+  --down: #e8636b;
+  --down-soft: #3a1418;
   --bg-glow: #1a2036;
   --radius: 16px;
 }
@@ -26,6 +28,8 @@
   --gold-soft: #f6e6c2;
   --best: #16805a;
   --best-soft: #d9f2e6;
+  --down: #c23b45;
+  --down-soft: #f8dee0;
   --bg-glow: #fff3d6;
 }
 
