@@ -1,13 +1,36 @@
 import { DatabaseSync } from "node:sqlite";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { SHOPS } from "./shops";
 
 let db: DatabaseSync | null = null;
 
+// On Netlify, page.tsx Server Components and route.ts Route Handlers turned
+// out to run with a different process.cwd() despite both being packaged
+// into "the same" deployed function — the plain `../data/kaitori.db` guess
+// (correct for local dev and for pages) threw ERR_SQLITE_ERROR/"unable to
+// open database file" specifically from route handlers. Trying several
+// plausible candidates and using whichever actually exists avoids depending
+// on a single assumption about the runtime's working directory.
+function resolveDbPath(): string {
+  const candidates = [
+    path.join(process.cwd(), "..", "data", "kaitori.db"),
+    path.join(process.cwd(), "data", "kaitori.db"),
+    path.join(process.cwd(), "..", "..", "data", "kaitori.db"),
+    path.join(__dirname, "..", "..", "data", "kaitori.db"),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error(
+      `kaitori.db not found. Tried:\n${candidates.join("\n")}\ncwd=${process.cwd()} __dirname=${__dirname}`
+    );
+  }
+  return found;
+}
+
 export function getDb(): DatabaseSync {
   if (!db) {
-    const dbPath = path.join(process.cwd(), "..", "data", "kaitori.db");
-    db = new DatabaseSync(dbPath, { readOnly: true });
+    db = new DatabaseSync(resolveDbPath(), { readOnly: true });
   }
   return db;
 }
