@@ -26,7 +26,7 @@ export async function generateMetadata({
   const series = getSeriesBySlug(slug);
   if (!series) return {};
 
-  const title = `${series.label}買取価格 一括比較｜カイトリレーダー`;
+  const title = `${series.label}買取価格 一括比較｜${SITE_NAME}`;
   const description = `${series.tagline}。秋葉原の買取店の価格を横断比較し、同じカードがどこで一番高く売れるか一発で分かります。`;
   const url = `${SITE_URL}/${series.slug}`;
 
@@ -79,7 +79,7 @@ export default async function SeriesPage({
           href="/"
           className="mono inline-block text-xs tracking-[0.25em] text-[var(--gold)] uppercase hover:underline"
         >
-          ← Kaitori Radar
+          ← {SITE_NAME}
         </Link>
         <h1 className="mt-2 text-3xl leading-[1.15] font-black tracking-tight sm:text-5xl">
           {series.label}

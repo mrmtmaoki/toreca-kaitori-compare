@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/site";
 
 export function InfoPage({
   title,
@@ -15,7 +16,7 @@ export function InfoPage({
         href="/"
         className="mono inline-block text-xs tracking-[0.25em] text-[var(--gold)] uppercase hover:underline"
       >
-        ← Kaitori Radar
+        ← {SITE_NAME}
       </Link>
       <h1 className="mt-2 mb-2 text-2xl font-black text-[var(--ink)]">{title}</h1>
       {lead && <p className="mb-8 text-sm text-[var(--ink-soft)]">{lead}</p>}

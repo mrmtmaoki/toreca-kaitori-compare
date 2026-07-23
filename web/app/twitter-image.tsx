@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "カイトリレーダー｜そのカード、どこで売るのが一番高い？";
+export const alt = "買取レーダー｜そのカード、どこで売るのが一番高い？";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -21,15 +21,26 @@ export default function Image() {
         <div
           style={{
             display: "flex",
-            fontSize: 28,
-            letterSpacing: 6,
-            color: "#e8b84b",
-            fontWeight: 700,
-            textTransform: "uppercase",
+            alignItems: "baseline",
+            gap: 14,
             marginBottom: 28,
           }}
         >
-          KAITORI RADAR
+          <div style={{ display: "flex", fontSize: 40, color: "#e8b84b", fontWeight: 900 }}>
+            買取レーダー
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 18,
+              letterSpacing: 4,
+              color: "#9aa1b5",
+              fontWeight: 700,
+              textTransform: "uppercase",
+            }}
+          >
+            KAITORI RADAR
+          </div>
         </div>
         <div
           style={{

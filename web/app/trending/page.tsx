@@ -24,7 +24,7 @@ export default function TrendingPage() {
         href="/"
         className="mono inline-block text-xs tracking-[0.25em] text-[var(--gold)] uppercase hover:underline"
       >
-        ← Kaitori Radar
+        ← {SITE_NAME}
       </Link>
 
       <h1 className="mt-2 mb-1 text-2xl font-black text-[var(--ink)]">急上昇 / 急降下ピックアップ</h1>

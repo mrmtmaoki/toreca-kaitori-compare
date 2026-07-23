@@ -6,6 +6,7 @@ import { getSeriesBySlug } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { generateDummyEvents } from "@/lib/dummyTrendData";
 import { CardThumb } from "../../CardExplorer";
+import ShareButtons from "../../ShareButtons";
 import TestDataNotice from "../../TestDataNotice";
 import TrendCard from "../../TrendCard";
 
@@ -35,7 +36,7 @@ export async function generateMetadata({
   if (!resolved) return {};
   const { series, card } = resolved;
 
-  const title = `${card.name} 買取価格比較｜カイトリレーダー`;
+  const title = `${card.name} 買取価格比較｜${SITE_NAME}`;
   const description = `${card.name}の買取価格を${card.shopCount}店舗で横断比較。最高¥${card.maxPrice.toLocaleString()}。価格推移チャートで相場の動きもチェックできます。`;
   const url = `${SITE_URL}/${series.slug}/${card.id}`;
 
@@ -99,6 +100,10 @@ export default async function CardDetailPage({
             </span>
           </div>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <ShareButtons cardName={card.name} maxPrice={card.maxPrice} url={`${SITE_URL}/${series.slug}/${card.id}`} />
       </div>
 
       <section className="mt-8">

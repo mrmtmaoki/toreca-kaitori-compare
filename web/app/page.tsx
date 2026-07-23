@@ -34,9 +34,14 @@ export default function HomePage() {
     <main className="flex-1">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       <div className="mx-auto max-w-6xl px-5 pt-14 pb-4 sm:pt-20">
-        <p className="mono mb-3 text-xs tracking-[0.25em] text-[var(--gold)] uppercase">
-          Kaitori Radar
-        </p>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="text-2xl font-black tracking-tight text-[var(--gold)] sm:text-3xl">
+            買取レーダー
+          </span>
+          <span className="mono text-[10px] tracking-[0.25em] text-[var(--ink-soft)] uppercase sm:text-xs">
+            Kaitori Radar
+          </span>
+        </div>
         <h1 className="text-4xl leading-[1.15] font-black tracking-tight sm:text-6xl">
           そのカード、
           <br className="sm:hidden" />

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Noto_Sans_JP, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import ThemeToggle from "./ThemeToggle";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 // Applies the saved theme before first paint so switching to light mode
 // doesn't flash dark on the next page load.
@@ -36,7 +36,7 @@ const siteLinks = [
   { href: "/terms", label: "利用規約" },
 ];
 
-const DEFAULT_TITLE = "トレカ買取価格 一覧比較・チャート｜カイトリレーダー";
+const DEFAULT_TITLE = `トレカ買取価格 一覧比較・チャート｜${SITE_NAME}`;
 const DEFAULT_DESCRIPTION =
   "秋葉原のトレカ(とれか)買取店の価格を一覧にまとめて比較。複数サイトを見て回らなくても、同じカードの買取価格を1画面でチェックできます。価格推移チャートで急上昇/急降下カードもひと目で分かります。";
 
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: DEFAULT_TITLE,
-    template: "%s｜カイトリレーダー",
+    template: `%s｜${SITE_NAME}`,
   },
   description: DEFAULT_DESCRIPTION,
   alternates: { canonical: SITE_URL },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
     url: SITE_URL,
-    siteName: "カイトリレーダー",
+    siteName: SITE_NAME,
     locale: "ja_JP",
     type: "website",
   },
@@ -94,7 +94,7 @@ export default function RootLayout({
             ))}
           </ul>
           <p className="mono mt-4 text-[10px] text-[var(--ink-soft)]">
-            © {new Date().getFullYear()} カイトリレーダー
+            © {new Date().getFullYear()} {SITE_NAME}
           </p>
         </nav>
       </body>

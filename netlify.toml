@@ -14,3 +14,18 @@
 # connection in web/lib/db.ts can open it at runtime.
 [functions]
   included_files = ["data/kaitori.db"]
+
+# On Netlify, next/image is served through Netlify's own Image CDN, not
+# Next.js's built-in optimizer — next.config.ts's images.remotePatterns
+# alone isn't enough (confirmed live: every card thumbnail 403'd from
+# /_next/image despite the hostname being in remotePatterns). Netlify
+# Image CDN needs its own separate allowlist here, one regex per source
+# host card images actually come from (web/next.config.ts's remotePatterns
+# list is the source of truth for which hosts these should match).
+[images]
+  remote_images = [
+    "https://www\\.suruga-ya\\.jp/.*",
+    "https://makeshop-multi-images\\.akamaized\\.net/.*",
+    "https://otachu-akiba\\.com/.*",
+    "https://www\\.mercardop\\.jp/.*"
+  ]
