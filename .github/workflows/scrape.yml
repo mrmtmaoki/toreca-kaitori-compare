@@ -2,8 +2,8 @@ name: Daily scrape
 
 on:
   schedule:
-    # 20:00 UTC = 05:00 JST
-    - cron: "0 20 * * *"
+    # 20:05 UTC = 05:05 JST (off the exact hour to avoid GitHub's top-of-hour scheduling congestion)
+    - cron: "5 20 * * *"
   workflow_dispatch: {}
 
 permissions:
