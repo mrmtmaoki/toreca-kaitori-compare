@@ -219,13 +219,23 @@ function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
     const fullName = match ? match[3].trim() : productName;
     const hasKiraTag = KIRA_TAG_RE.test(fullName);
 
+    // Each row's .title link points at a stable per-listing detail page
+    // (/kaitori/kaitori_detail/<shinaban>) — a real product URL, unlike
+    // `targetUrl` (the shared search-results page this row happened to
+    // appear on, which drifts as prices/rank change between scrapes and is
+    // shared by every other card on the same page). Falling back to
+    // targetUrl only if the link is ever missing, rather than dropping the
+    // row, since a slightly-wrong link beats losing the price entirely.
+    const detailHref = $row.find(".title a").first().attr("href");
+    const sourceUrl = detailHref ? new URL(detailHref, targetUrl).toString() : targetUrl;
+
     results.push({
       name: hasKiraTag ? fullName.replace(KIRA_TAG_RE, "") : fullName,
       hasKiraTag,
       rarity: match ? match[2].trim() : null,
       cardNumber,
       price,
-      sourceUrl: targetUrl,
+      sourceUrl,
       imageUrl,
     });
   });

@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { SHOPS } from "./shops";
+import { toAffiliateUrl } from "./affiliateLinks";
 
 let db: DatabaseSync | null = null;
 
@@ -111,7 +112,7 @@ function rowsToCards(
     card.prices.push({
       shopName: labelForShop(row.shop_name),
       price: row.price,
-      sourceUrl: row.source_url,
+      sourceUrl: toAffiliateUrl(row.shop_name, row.source_url),
       scrapedAt: row.scraped_at,
     });
   }
