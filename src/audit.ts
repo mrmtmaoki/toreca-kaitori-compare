@@ -63,11 +63,32 @@ function printCard(db: ReturnType<typeof openDb>, row: CardRow) {
   }
 }
 
+// Sorting either section by raw maxp DESC — the original approach — lets a
+// handful of very-high-yen anomalies (e.g. one shop's systematically broken
+// page producing ¥1,000,000+ junk values) crowd the LIMIT_ROWS window and
+// silently push out smaller-yen-but-still-broken cards. Confirmed concretely
+// 2026-07-24: a ¥300→¥8,000 fullcomp same-card_id mismatch (a real bug, fixed
+// same day) matched the same-shop HAVING clause the whole time but never
+// printed — it ranked #105 of 225 by maxp. Sorting by ratio instead is a
+// better proxy for "how broken does this look" independent of the card's
+// absolute price tier, and printing the true match count makes it visible
+// when the window is truncating results at all (neither was true before).
+function printSection(db: ReturnType<typeof openDb>, title: string, rows: CardRow[], totalMatches: number) {
+  console.log(`\n=== ${title} ===`);
+  if (rows.length === 0) {
+    console.log("(該当なし)");
+    return;
+  }
+  for (const row of rows) printCard(db, row);
+  if (totalMatches > rows.length) {
+    console.log(`  ...ほか${totalMatches - rows.length}件(倍率降順で上位${rows.length}件のみ表示)`);
+  }
+}
+
 function main() {
   const db = openDb();
 
-  console.log(`=== 店舗間スプレッド異常 (${CROSS_SHOP_RATIO_THRESHOLD}倍以上, ${MIN_RECORDS}件以上) ===`);
-  const crossShop = db
+  const crossShopAll = db
     .prepare(
       `SELECT c.id, c.series, c.canonical_name, c.card_number, c.rarity, c.variant,
               MIN(pr.price) AS minp, MAX(pr.price) AS maxp, COUNT(*) AS n,
@@ -75,41 +96,36 @@ function main() {
        FROM cards c JOIN price_records pr ON pr.card_id = c.id
        GROUP BY c.id
        HAVING n >= ? AND maxp > minp * ?
-       ORDER BY maxp DESC
-       LIMIT ?`
+       ORDER BY (maxp * 1.0 / minp) DESC`
     )
-    .all(MIN_RECORDS, CROSS_SHOP_RATIO_THRESHOLD, MAX_ROWS) as unknown as CardRow[];
-
-  if (crossShop.length === 0) {
-    console.log("(該当なし)");
-  } else {
-    for (const row of crossShop) printCard(db, row);
-  }
+    .all(MIN_RECORDS, CROSS_SHOP_RATIO_THRESHOLD) as unknown as CardRow[];
+  printSection(
+    db,
+    `店舗間スプレッド異常 (${CROSS_SHOP_RATIO_THRESHOLD}倍以上, ${MIN_RECORDS}件以上)`,
+    crossShopAll.slice(0, MAX_ROWS),
+    crossShopAll.length
+  );
 
   // Same shop + same card_id spanning a huge range is a stronger signal: it
   // means either the same shop lists multiple physically-distinct copies
   // under our matching key (a modeling gap, not fixable by matching alone),
   // or the card is still miscategorized. Worth a human look either way.
-  console.log(
-    `\n=== 同一店舗内スプレッド異常 (${SAME_SHOP_RATIO_THRESHOLD}倍以上, 要確認: マッチングの精度不足の可能性) ===`
-  );
-  const sameShop = db
+  const sameShopAll = db
     .prepare(
       `SELECT c.id, c.series, c.canonical_name, c.card_number, c.rarity, c.variant,
               MIN(pr.price) AS minp, MAX(pr.price) AS maxp, COUNT(*) AS n, 1 AS shopN
        FROM cards c JOIN price_records pr ON pr.card_id = c.id
        GROUP BY c.id, pr.shop_id
        HAVING n >= 2 AND maxp > minp * ?
-       ORDER BY maxp DESC
-       LIMIT ?`
+       ORDER BY (maxp * 1.0 / minp) DESC`
     )
-    .all(SAME_SHOP_RATIO_THRESHOLD, MAX_ROWS) as unknown as CardRow[];
-
-  if (sameShop.length === 0) {
-    console.log("(該当なし)");
-  } else {
-    for (const row of sameShop) printCard(db, row);
-  }
+    .all(SAME_SHOP_RATIO_THRESHOLD) as unknown as CardRow[];
+  printSection(
+    db,
+    `同一店舗内スプレッド異常 (${SAME_SHOP_RATIO_THRESHOLD}倍以上, 要確認: マッチングの精度不足の可能性)`,
+    sameShopAll.slice(0, MAX_ROWS),
+    sameShopAll.length
+  );
 
   db.close();
 }

@@ -104,9 +104,27 @@ export const fullcompScraper: ShopScraper = {
 
         const embedded = name.trim().match(EMBEDDED_NUMBER_NAME_RE);
         if (embedded) {
+          const bracketCode = embedded[1].trim();
+          const field2Trimmed = field2?.trim() || null;
+          // field2 is usually the authoritative rarity, but for パラレル prints
+          // fullcomp sometimes leaves it at the base code (e.g. "SR") instead of
+          // updating it to match the "...P" code the name's bracket already
+          // shows (e.g. "【SRP】"). Since the only other signal distinguishing
+          // these from their non-parallel counterpart is the "(※★)" tag —
+          // treated as decorative noise elsewhere (see variant.ts,
+          // DECORATIVE_ONLY_TAGS) because it usually really is — that leaves
+          // genuinely different, often much-more-valuable prints (confirmed:
+          // 43 such pairs on this shop's One Piece listings, priced 5x-267x
+          // apart every time) colliding into one card. Prefer the bracket code
+          // specifically when it's exactly field2 + "P" — a narrow, confirmed
+          // pattern — rather than trusting the bracket wholesale (it also uses
+          // coarser codes like "PR" for promos that field2 already resolves
+          // more precisely; see rarity.ts's ONE_PIECE_TABLE for the "...P"
+          // rarities this maps into, e.g. SRP -> "スーパーレア(パラレル)").
+          const rarity = bracketCode === `${field2Trimmed}P` ? bracketCode : field2Trimmed;
           return {
             rawName: withExtraTags(embedded[2].trim()),
-            rarity: field2?.trim() || null,
+            rarity,
             cardNumber: embedded[3],
             price,
             sourceUrl: targetUrl,

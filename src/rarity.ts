@@ -165,12 +165,26 @@ const TABLES_BY_SERIES: Record<string, Record<string, string>> = {
   ポケモンカード: POKEMON_TABLE,
 };
 
+// Some shops write an ASCII rarity code in a different case than the table's
+// own key (confirmed: おたちゅう's ポケモンカード promo rows use bare lowercase
+// "p" where every other shop, and this table, use "P" — the two never
+// matched, so おたちゅう's promo cards silently never cross-shop-matched
+// anyone else's). NFKC normalization doesn't touch letter case, so a
+// case-insensitive index (built once here) is layered on top, same fix
+// shape as SURUGAYA_POKEMON_SET_CODE_CI in src/scrapers/surugaya.ts. Case
+// isn't meaningfully distinctive in any of these short rarity codes.
+const CI_TABLES_BY_SERIES: Record<string, Map<string, string>> = Object.fromEntries(
+  Object.entries(TABLES_BY_SERIES).map(([series, table]) => [
+    series,
+    new Map(Object.entries(table).map(([key, value]) => [key.toLowerCase(), value])),
+  ])
+);
+
 export function canonicalizeRarity(raw: string | null, series: string): string | null {
   if (!raw) return null;
   // Some shops write the same rarity with extra internal spacing (e.g. "20th
   // Secret" vs "20thシークレット") — stripped before lookup (and in the
   // unmapped fallback too, so the two forms end up identical either way).
   const normalized = raw.normalize("NFKC").trim().replace(/\s+/g, "");
-  const table = TABLES_BY_SERIES[series];
-  return table?.[normalized] ?? normalized;
+  return CI_TABLES_BY_SERIES[series]?.get(normalized.toLowerCase()) ?? normalized;
 }

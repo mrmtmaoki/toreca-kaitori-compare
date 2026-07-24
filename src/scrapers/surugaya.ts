@@ -2,6 +2,20 @@ import * as cheerio from "cheerio";
 import { SURUGAYA_POKEMON_SET_CODE } from "../pokemon-sets.js";
 import type { ScrapedPrice, ShopScraper } from "../types.js";
 
+// 駿河屋 inconsistently cases the ASCII portions of its own set labels — e.g.
+// the same "MEGAドリームEX" set shows up as "...MEGAドリームex" (lowercase) on
+// its live listing pages, and "ポケモンカードE「...」" as "...カードe「...」" —
+// while SURUGAYA_POKEMON_SET_CODE's keys were transcribed once from a sample
+// and don't track every casing drift since. NFKC normalization (below)
+// doesn't touch letter case at all, so this silently fell through to the raw
+// label the same way the full-width-space/"＆" mismatch used to (confirmed:
+// 11 of the table's ~52 set labels affected, 222 card_numbers stuck as
+// unmapped raw labels). Case-fold the lookup only — case isn't meaningfully
+// distinctive in any of these labels, so this is safe.
+const SURUGAYA_POKEMON_SET_CODE_CI = new Map(
+  Object.entries(SURUGAYA_POKEMON_SET_CODE).map(([key, code]) => [key.toLowerCase(), code])
+);
+
 // card number is optional — some old promo listings have no leading number at
 // all, e.g. "[SE]：青眼の白龍" (a 1999 event handout with no set code).
 const PRODUCT_NAME_RE = /^([^[]*)\[([^\]]+)\]：(.+)$/;
@@ -103,7 +117,7 @@ function extractSetLabel(categoryText: string): string | null {
   // Prefer the shop-independent code (e.g. "SV8") over 駿河屋's own Japanese
   // set label when known — see src/pokemon-sets.ts for why this is required
   // for cross-shop matching, not just cosmetic.
-  return SURUGAYA_POKEMON_SET_CODE[normalized] ?? normalized;
+  return SURUGAYA_POKEMON_SET_CODE_CI.get(normalized.toLowerCase()) ?? normalized;
 }
 
 interface RawEntry {
