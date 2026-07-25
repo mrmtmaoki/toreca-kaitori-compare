@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getStats, topCards } from "@/lib/db";
+import { getStats, listColorOptions, listPokemonTypeOptions, listSetOptions, topCards } from "@/lib/db";
 import { getSeriesBySlug, SERIES_LIST } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import CardExplorer from "../CardExplorer";
@@ -50,6 +50,9 @@ export default async function SeriesPage({
 
   const stats = getStats(series.name);
   const initialCards = topCards("shops_desc", 30, series.name);
+  const setOptions = listSetOptions(series.name);
+  const colorOptions = series.name === "ワンピースカード" ? listColorOptions(series.name) : undefined;
+  const typeOptions = series.name === "ポケモンカード" ? listPokemonTypeOptions(series.name) : undefined;
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -89,6 +92,9 @@ export default async function SeriesPage({
         </h1>
         <p className="mt-3 max-w-xl text-sm text-[var(--ink-soft)] sm:text-base">
           {series.tagline}。同じカードの買取価格を1画面で比較できます。
+          <Link href={`/${series.slug}/box`} className="ml-1 text-[var(--gold)] hover:underline">
+            未開封BOXの買取価格はこちら →
+          </Link>
         </p>
 
         <div className="mt-6">
@@ -107,6 +113,9 @@ export default async function SeriesPage({
         initialCards={initialCards}
         series={series.slug}
         searchPlaceholder={series.searchPlaceholder}
+        setOptions={setOptions}
+        colorOptions={colorOptions}
+        typeOptions={typeOptions}
       />
 
       <SiteFooter />

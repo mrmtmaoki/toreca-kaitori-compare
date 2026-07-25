@@ -1,0 +1,48 @@
+name: Weekly master data refresh
+
+# Card color + fallback image (ワンピースカード, onepiece-cardgame.com) are
+# static reference data — they only change when a new set releases, not day
+# to day like buyback prices. Running this at daily-scrape cadence would be
+# wasteful, so it's a separate, weekly job. See src/masterdata/ for the
+# fetcher itself.
+#
+# ポケモンカード's type used to be planned for this same weekly job (via
+# TCGdex), but that was abandoned 2026-07-25 — coverage capped around ~17%
+# due to our own card_number data gaps, well short of just reading it from
+# フルコンプ/駿河屋/晴れる屋2's own raw data during the regular daily scrape
+# (84%+, see src/scrapers/fullcomp.ts, surugaya.ts, hareruya2.ts and
+# src/db.ts updatePokemonType) — no separate job needed for that anymore.
+on:
+  schedule:
+    # 21:15 UTC Monday = 06:15 JST Tuesday (off the exact hour, and offset
+    # from the daily scrape's 20:05 UTC slot so they don't compete for the
+    # same runner window)
+    - cron: "15 21 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  masterdata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run masterdata:onepiece
+
+      - name: Commit updated master data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/kaitori.db
+          git diff --staged --quiet || git commit -m "chore: weekly master data refresh (color/image) $(date -u +%Y-%m-%d)"
+          git push

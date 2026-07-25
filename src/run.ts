@@ -1,4 +1,4 @@
-import { findOrCreateCard, insertPriceRecord, logScrapeRun, openDb, upsertShop } from "./db.js";
+import { findOrCreateCard, insertPriceRecord, logScrapeRun, openDb, updatePokemonType, upsertShop } from "./db.js";
 import { dynamicScrapeTargets, scrapeTargets, type ScrapeTarget } from "./targets.js";
 
 const REQUEST_DELAY_MS = 3000;
@@ -33,6 +33,7 @@ async function processTarget(db: ReturnType<typeof openDb>, target: ScrapeTarget
           sourceUrl: p.sourceUrl,
           imageUrl: p.imageUrl,
         });
+        if (p.pokemonType) updatePokemonType(db, cardId, p.pokemonType);
       }
     } catch (err) {
       console.error(`  失敗: ${pageUrl}`, err instanceof Error ? err.message : err);

@@ -2,9 +2,26 @@ import Link from "next/link";
 import { CardThumb } from "./CardExplorer";
 import { getTopMoverPerGenre } from "@/lib/topMovers";
 import { getSeriesBySlug } from "@/lib/series";
-import { DUMMY_FALLING_CARDS, DUMMY_TREND_CARDS } from "@/lib/dummyTrendData";
+import { DUMMY_FALLING_CARDS, DUMMY_TREND_CARDS, generateDummyEvents } from "@/lib/dummyTrendData";
 import TestDataNotice from "./TestDataNotice";
-import TrendingTabs from "./TrendingTabs";
+import TrendingTabs, { type TrendingCardData } from "./TrendingTabs";
+
+const DUMMY_RISING: TrendingCardData[] = DUMMY_TREND_CARDS.map((c, i) => ({
+  id: -1 - i,
+  seriesSlug: "yugioh",
+  name: c.name,
+  sub: c.sub,
+  changePercent: 0,
+  events: generateDummyEvents(c.days, c.base, c.seed, c.direction),
+}));
+const DUMMY_FALLING: TrendingCardData[] = DUMMY_FALLING_CARDS.map((c, i) => ({
+  id: -100 - i,
+  seriesSlug: "yugioh",
+  name: c.name,
+  sub: c.sub,
+  changePercent: 0,
+  events: generateDummyEvents(c.days, c.base, c.seed, c.direction),
+}));
 
 /**
  * Real "biggest riser per genre" once there are at least 2 scrape dates in
@@ -26,14 +43,22 @@ export default function TrendingPicks() {
           </Link>
         </div>
         <TestDataNotice />
-        <TrendingTabs rising={DUMMY_TREND_CARDS} falling={DUMMY_FALLING_CARDS} columns={3} />
+        <TrendingTabs rising={DUMMY_RISING} falling={DUMMY_FALLING} columns={3} />
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-6xl px-5 pb-4">
-      <p className="mt-10 mb-3 text-sm font-bold text-[var(--ink-soft)]">ジャンル別 急上昇カード</p>
+      <div className="mt-10 mb-3 flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-[var(--ink-soft)]">ジャンル別 急上昇カード</p>
+        <Link
+          href="/trending"
+          className="mono rounded-full bg-[var(--gold-soft)] px-4 py-2 text-sm font-bold text-[var(--gold)] transition-colors hover:bg-[var(--gold)] hover:text-[var(--bg)]"
+        >
+          急上昇/急降下チャート →
+        </Link>
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {movers.map((mover) => {
           const series = getSeriesBySlug(mover.series);

@@ -6,6 +6,7 @@ export interface PriceTrendPoint {
   date: string; // "YYYY-MM-DD"
   maxPrice: number;
   medianPrice: number;
+  confirmed?: boolean;
 }
 
 const WIDTH = 800;
@@ -37,7 +38,7 @@ export default function PriceTrendChart({
   const trendUp = data.length > 1 ? data[data.length - 1].maxPrice >= data[0].maxPrice : true;
   const lineColor = trendUp ? "var(--best)" : "var(--down)";
 
-  const { xFor, yFor, maxPath, medianPath, areaPath, yTicks, xTickIdx } = useMemo(() => {
+  const { xFor, yFor, maxSegments, medianPath, areaPath, yTicks, xTickIdx } = useMemo(() => {
     const allValues = data.flatMap((d) => [d.maxPrice, d.medianPrice]);
     const rawMin = Math.min(...allValues);
     const rawMax = Math.max(...allValues);
@@ -56,6 +57,23 @@ export default function PriceTrendChart({
     const buildPath = (key: "maxPrice" | "medianPrice") =>
       data.map((d, i) => `${i === 0 ? "M" : "L"}${xFor(i)},${yFor(d[key])}`).join(" ");
 
+    // The max-price line is split into per-segment paths, not one continuous
+    // path, so a segment can render dashed when it ends on an unconfirmed
+    // point (see PriceEvent.confirmed in web/lib/priceTrend.ts). Only the
+    // *destination* point's confirmed status matters here, not the starting
+    // point — a segment represents "the line moved to this new value", and
+    // that move is trustworthy exactly when the new value is; whether the
+    // earlier point was itself independently reconfirmed that day is a
+    // separate fact already reflected in the *previous* segment's styling.
+    // (Requiring both endpoints confirmed was a real bug: it dashed a
+    // segment showing a genuine, confirmed price rise just because the
+    // pre-rise starting point happened to be an unconfirmed carry-forward —
+    // confirmed 2026-07-25 via a real card.)
+    const maxSegments = data.slice(1).map((d, i) => ({
+      d: `M${xFor(i)},${yFor(data[i].maxPrice)} L${xFor(i + 1)},${yFor(d.maxPrice)}`,
+      dashed: d.confirmed === false,
+    }));
+
     const maxPath = buildPath("maxPrice");
     const areaPath =
       data.length > 0
@@ -70,7 +88,7 @@ export default function PriceTrendChart({
       Math.round((i / (xTickCount - 1 || 1)) * (data.length - 1))
     );
 
-    return { xFor, yFor, maxPath, medianPath: buildPath("medianPrice"), areaPath, yTicks, xTickIdx };
+    return { xFor, yFor, maxSegments, medianPath: buildPath("medianPrice"), areaPath, yTicks, xTickIdx };
   }, [data]);
 
   if (data.length === 0) return null;
@@ -103,6 +121,14 @@ export default function PriceTrendChart({
           <span className="inline-block h-0.5 w-4 rounded-full bg-[var(--gold)] opacity-70" />
           <span className="text-[var(--ink-soft)]">中央値</span>
         </span>
+        {maxSegments.some((s) => s.dashed) && (
+          <span className="flex items-center gap-1.5">
+            <svg width="16" height="2" className="shrink-0">
+              <line x1="0" y1="1" x2="16" y2="1" stroke={lineColor} strokeWidth={2} strokeDasharray="4 3" opacity={0.65} />
+            </svg>
+            <span className="text-[var(--ink-soft)]">未確認期間(推定)</span>
+          </span>
+        )}
       </div>
 
       <svg
@@ -158,7 +184,19 @@ export default function PriceTrendChart({
 
         <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
         <path d={medianPath} fill="none" stroke="var(--gold)" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3" />
-        <path d={maxPath} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        {maxSegments.map((seg, i) => (
+          <path
+            key={i}
+            d={seg.d}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={seg.dashed ? "6 4" : undefined}
+            opacity={seg.dashed ? 0.65 : 1}
+          />
+        ))}
 
         {/* Pinned marker at the latest point, stock-app style, hidden while hovering elsewhere */}
         {hoverIdx === null && (

@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { normalizeCardNumber } from "./normalize.js";
-import { canonicalizeRarity } from "./rarity.js";
+import { canonicalizeRarity, normalizeParallelEncoding } from "./rarity.js";
 import { extractVariantTag } from "./variant.js";
 
 export function openDb(path = "data/kaitori.db") {
@@ -54,7 +54,46 @@ export function openDb(path = "data/kaitori.db") {
     );
     CREATE INDEX IF NOT EXISTS idx_scrape_runs_shop_series_time
       ON scrape_runs (shop_id, series, ran_at DESC);
+
+    -- BOX(密封商品)の買取価格。個別カードのcard_idには紐づけられない —
+    -- 駿河屋のように商品名にセットコードが埋め込まれてる店舗ではset_codeを
+    -- 埋めるが(例: "OP-05")、おたちゅうのように商品名が自由記述の店舗では
+    -- NULLのまま、product_nameだけで表示する(2026-07-25、詳細はsrc/scrapers/
+    -- のBOXスクレイプ関連コード参照)。
+    CREATE TABLE IF NOT EXISTS box_prices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shop_id INTEGER NOT NULL REFERENCES shops(id),
+      series TEXT NOT NULL,
+      set_code TEXT,
+      product_name TEXT NOT NULL,
+      price INTEGER NOT NULL,
+      source_url TEXT NOT NULL,
+      scraped_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_box_prices_series ON box_prices (series);
   `);
+
+  // Lightweight ad-hoc migration (no formal migration framework in this
+  // project) — CREATE TABLE IF NOT EXISTS above is a no-op once the table
+  // already exists, so new columns need adding separately. color
+  // (ワンピースカード only) is backfilled master data from an official card
+  // database not scraped per-shop (onepiece-cardgame.com, see
+  // src/masterdata/onePieceColors.ts). pokemon_type (ポケモンカード only) is
+  // read directly from shops' own raw data during the regular scrape instead
+  // (see updatePokemonType below) — TCGdex was tried and abandoned
+  // 2026-07-25, see src/pokemon-sets.ts's comment for why.
+  const cardColumns = new Set(
+    (db.prepare(`PRAGMA table_info(cards)`).all() as { name: string }[]).map((c) => c.name)
+  );
+  if (!cardColumns.has("color")) db.exec(`ALTER TABLE cards ADD COLUMN color TEXT`);
+  if (!cardColumns.has("pokemon_type")) db.exec(`ALTER TABLE cards ADD COLUMN pokemon_type TEXT`);
+  // official_image_url (ワンピースカード only, for now): a fallback image
+  // source for cards no shop currently has a photo for — same
+  // onepiece-cardgame.com master-data source as color, see
+  // src/masterdata/onePieceColors.ts. Shop-scraped photos (price_records.
+  // image_url) still take priority when both exist; this only fills gaps.
+  if (!cardColumns.has("official_image_url")) db.exec(`ALTER TABLE cards ADD COLUMN official_image_url TEXT`);
+
   return db;
 }
 
@@ -93,11 +132,12 @@ export function findOrCreateCard(
   input: { name: string; series: string; rarity: string | null; cardNumber: string | null }
 ) {
   const cardNumber = normalizeCardNumber(input.cardNumber);
-  const rarity = canonicalizeRarity(input.rarity, input.series);
+  const rawRarity = canonicalizeRarity(input.rarity, input.series);
   // Same card_number+rarity can still mean genuinely different prints (parallel,
   // alt art, tournament stamp) when a shop only marks that via a "(...)" tag in
   // the name — fold it into the key so those don't collapse into one card.
-  const variant = extractVariantTag(input.name);
+  const rawVariant = extractVariantTag(input.name);
+  const { rarity, variant } = normalizeParallelEncoding(input.series, rawRarity, rawVariant);
 
   if (cardNumber) {
     const existing = db
@@ -159,6 +199,54 @@ export function insertPriceRecord(
     input.price,
     input.sourceUrl,
     input.imageUrl ?? null,
+    new Date().toISOString()
+  );
+}
+
+/**
+ * Backfills ポケモンカード's elemental type from a shop's own raw data
+ * (フルコンプ/駿河屋/晴れる屋2 all happen to carry it — see each scraper's
+ * pokemonType field) directly onto the card row, independent of price —
+ * unlike insertPriceRecord this isn't append-only history, just the latest
+ * known value, since type never changes for a given card.
+ */
+export function updatePokemonType(db: DatabaseSync, cardId: number, pokemonType: string) {
+  db.prepare(
+    `UPDATE cards SET pokemon_type = ? WHERE id = ? AND (pokemon_type IS NULL OR pokemon_type != ?)`
+  ).run(pokemonType, cardId, pokemonType);
+}
+
+/** Same change-only-insert dedup as insertPriceRecord, keyed on
+ * (shopId, series, productName) since box products have no card_id. */
+export function insertBoxPrice(
+  db: DatabaseSync,
+  input: {
+    shopId: number;
+    series: string;
+    setCode: string | null;
+    productName: string;
+    price: number;
+    sourceUrl: string;
+  }
+) {
+  const latest = db
+    .prepare(
+      `SELECT price FROM box_prices WHERE shop_id = ? AND series = ? AND product_name = ?
+       ORDER BY scraped_at DESC LIMIT 1`
+    )
+    .get(input.shopId, input.series, input.productName) as { price: number } | undefined;
+  if (latest && latest.price === input.price) return;
+
+  db.prepare(
+    `INSERT INTO box_prices (shop_id, series, set_code, product_name, price, source_url, scraped_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    input.shopId,
+    input.series,
+    input.setCode,
+    input.productName,
+    input.price,
+    input.sourceUrl,
     new Date().toISOString()
   );
 }

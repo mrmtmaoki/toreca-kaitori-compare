@@ -93,7 +93,26 @@ export default function RootLayout({
               </li>
             ))}
           </ul>
-          <p className="mono mt-4 text-[10px] text-[var(--ink-soft)]">
+          <p className="mt-4 text-[10px] text-[var(--ink-soft)]">
+            <span className="mono tracking-wider">PR</span>{" "}
+            <a
+              href="https://px.a8.net/svt/ejp?a8mat=4B8810+67V08I+5PLE+5YRHE"
+              rel="nofollow noopener"
+              target="_blank"
+              className="hover:text-[var(--gold)] hover:underline"
+            >
+              【どっかん！トレカ】
+            </a>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              width={1}
+              height={1}
+              src="https://www12.a8.net/0.gif?a8mat=4B8810+67V08I+5PLE+5YRHE"
+              alt=""
+              style={{ position: "absolute" }}
+            />
+          </p>
+          <p className="mono mt-2 text-[10px] text-[var(--ink-soft)]">
             © {new Date().getFullYear()} {SITE_NAME}
           </p>
         </nav>

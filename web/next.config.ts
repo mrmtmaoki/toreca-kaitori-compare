@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "makeshop-multi-images.akamaized.net" },
       { protocol: "https", hostname: "otachu-akiba.com" },
       { protocol: "https", hostname: "www.mercardop.jp" },
+      { protocol: "https", hostname: "www.onepiece-cardgame.com" },
     ],
   },
 };

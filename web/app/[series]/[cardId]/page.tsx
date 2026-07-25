@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCardById } from "@/lib/db";
+import { getCardPriceHistory } from "@/lib/priceHistory";
 import { getSeriesBySlug } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { generateDummyEvents } from "@/lib/dummyTrendData";
 import { CardThumb } from "../../CardExplorer";
 import ShareButtons from "../../ShareButtons";
-import TestDataNotice from "../../TestDataNotice";
 import TrendCard from "../../TrendCard";
+import AffiliateBanner from "../../AffiliateBanner";
 
 // See app/page.tsx for why ISR (not force-dynamic) is correct here.
 export const revalidate = 3600;
@@ -67,9 +67,7 @@ export default async function CardDetailPage({
   if (!resolved) notFound();
   const { series, card } = resolved;
 
-  // TEMPORARY: dummy trend data seeded by the card's real id, so the same
-  // card always shows the same fake series — see web/lib/dummyTrendData.ts.
-  const events = generateDummyEvents(300, card.maxPrice || 3000, card.id, "up");
+  const events = getCardPriceHistory(card.id, series.name);
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
@@ -108,8 +106,11 @@ export default async function CardDetailPage({
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-bold text-[var(--ink-soft)]">価格推移</h2>
-        <TestDataNotice />
-        <TrendCard name={card.name} sub={card.cardNumber ?? card.rarity ?? ""} events={events} />
+        {events.length === 0 ? (
+          <p className="py-8 text-center text-xs text-[var(--ink-soft)]">価格推移データがまだありません</p>
+        ) : (
+          <TrendCard name={card.name} sub={card.cardNumber ?? card.rarity ?? ""} events={events} />
+        )}
       </section>
 
       <section className="mt-8">
@@ -137,6 +138,8 @@ export default async function CardDetailPage({
           })}
         </ul>
       </section>
+
+      <AffiliateBanner />
     </main>
   );
 }

@@ -11,6 +11,11 @@ export interface ScrapedPrice {
   sourceUrl: string;
   /** Product photo URL, if the shop's listing includes one */
   imageUrl?: string | null;
+  /** ポケモンカード's elemental type (炎/水/草 etc.), when this shop's raw
+   * data happens to carry it — a card-level fact independent of price, so
+   * it's backfilled onto cards.pokemon_type (see src/db.ts
+   * updatePokemonType) rather than treated like a price field. */
+  pokemonType?: string | null;
 }
 
 export interface ShopScraper {

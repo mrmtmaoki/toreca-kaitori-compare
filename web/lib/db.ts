@@ -48,6 +48,8 @@ export interface CardSummary {
   name: string;
   rarity: string | null;
   cardNumber: string | null;
+  color: string | null;
+  pokemonType: string | null;
   imageUrl: string | null;
   prices: ShopPrice[];
   minPrice: number;
@@ -83,6 +85,9 @@ function rowsToCards(
     canonical_name: string;
     rarity: string | null;
     card_number: string | null;
+    color: string | null;
+    pokemon_type: string | null;
+    official_image_url: string | null;
     shop_name: string;
     price: number;
     source_url: string;
@@ -91,6 +96,11 @@ function rowsToCards(
   }[]
 ): CardSummary[] {
   const byCard = new Map<number, CardSummary>();
+  // Tracks whether a real shop photo has been recorded for a card yet, so a
+  // shop photo (once found) can't be reverted back to the official fallback
+  // by a later row, but the fallback also doesn't block the first shop photo
+  // from taking over.
+  const hasShopImage = new Set<number>();
 
   for (const row of rows) {
     let card = byCard.get(row.id);
@@ -100,7 +110,12 @@ function rowsToCards(
         name: row.canonical_name,
         rarity: row.rarity,
         cardNumber: row.card_number,
-        imageUrl: null,
+        color: row.color,
+        pokemonType: row.pokemon_type,
+        // Shop photo (set below) takes priority when it exists — the
+        // official master image is only a fallback for cards no shop
+        // currently has a photo for (see src/masterdata/onePieceColors.ts).
+        imageUrl: row.official_image_url,
         prices: [],
         minPrice: Infinity,
         maxPrice: -Infinity,
@@ -108,7 +123,10 @@ function rowsToCards(
       };
       byCard.set(row.id, card);
     }
-    if (!card.imageUrl && row.image_url) card.imageUrl = row.image_url;
+    if (row.image_url && !hasShopImage.has(row.id)) {
+      card.imageUrl = row.image_url;
+      hasShopImage.add(row.id);
+    }
     card.prices.push({
       shopName: labelForShop(row.shop_name),
       price: row.price,
@@ -130,15 +148,28 @@ function rowsToCards(
   return [...byCard.values()];
 }
 
-export function searchCards(query: string, series?: string, limit = 60): CardSummary[] {
+export function searchCards(
+  query: string,
+  series?: string,
+  limit = 60,
+  setCode?: string,
+  color?: string,
+  pokemonType?: string
+): CardSummary[] {
   const db = getDb();
   const like = `%${query}%`;
   const seriesClause = series ? "AND series = ?" : "";
   const seriesArgs = series ? [series] : [];
+  const setClause = setCode ? "AND (card_number = ? OR card_number LIKE ?)" : "";
+  const setArgs = setCode ? [setCode, `${setCode}-%`] : [];
+  const colorClause = color ? "AND color = ?" : "";
+  const colorArgs = color ? [color] : [];
+  const typeClause = pokemonType ? "AND pokemon_type = ?" : "";
+  const typeArgs = pokemonType ? [pokemonType] : [];
   const rows = db
     .prepare(
       `${LATEST_PRICES_CTE}
-       SELECT c.id, c.canonical_name, c.rarity, c.card_number,
+       SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
        JOIN cards c ON c.id = l.card_id
@@ -146,12 +177,14 @@ export function searchCards(query: string, series?: string, limit = 60): CardSum
        WHERE l.rn = 1
          AND c.id IN (
            SELECT id FROM cards
-           WHERE (canonical_name LIKE ? OR card_number LIKE ?) ${seriesClause}
+           WHERE (canonical_name LIKE ? OR card_number LIKE ?) ${seriesClause} ${setClause} ${colorClause} ${typeClause}
            LIMIT ?
          )
        ORDER BY c.canonical_name`
     )
-    .all(like, like, ...seriesArgs, limit) as Parameters<typeof rowsToCards>[0];
+    .all(like, like, ...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs, limit) as Parameters<
+    typeof rowsToCards
+  >[0];
 
   return rowsToCards(rows);
 }
@@ -163,7 +196,7 @@ export function getCardById(id: number, series?: string): CardSummary | null {
   const rows = db
     .prepare(
       `${LATEST_PRICES_CTE}
-       SELECT c.id, c.canonical_name, c.rarity, c.card_number,
+       SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
        JOIN cards c ON c.id = l.card_id
@@ -198,7 +231,88 @@ export function listAllCardRefs(): CardRef[] {
 
 export type SortMode = "shops_desc" | "price_desc" | "price_asc";
 
-export function topCards(sort: SortMode, limit = 30, series?: string): CardSummary[] {
+// card_number's shop-independent set prefix is everything before the first
+// "-" (e.g. "SV8-001/025" -> "SV8", "OP07-109" -> "OP07"). A handful of bare
+// codes with no number at all (e.g. "SSG") have no hyphen — used as-is, which
+// just makes them their own single-card "set" group, a reasonable fallback.
+export function extractSetCode(cardNumber: string): string {
+  const idx = cardNumber.indexOf("-");
+  return idx === -1 ? cardNumber : cardNumber.slice(0, idx);
+}
+
+export interface SetOption {
+  code: string;
+  count: number;
+}
+
+/** Distinct sets for a series, most-populated first, for a filter dropdown. */
+export function listSetOptions(series: string): SetOption[] {
+  const db = getDb();
+  const rows = db
+    .prepare(`SELECT DISTINCT card_number FROM cards WHERE series = ? AND card_number IS NOT NULL`)
+    .all(series) as { card_number: string }[];
+
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const code = extractSetCode(row.card_number);
+    // A bare "-" card_number (seen from a shop's own "no number" placeholder,
+    // e.g. otachu — see src/scrapers/otachu.ts) extracts to an empty set
+    // code, which would otherwise show as a blank, unfilterable dropdown
+    // entry (empty string is falsy, so the filter query's setCode ? ... : ""
+    // ternary silently treats "selected" the same as "no filter").
+    if (code === "") continue;
+    counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+}
+
+export interface AttributeOption {
+  value: string;
+  count: number;
+}
+
+/** Distinct colors for ワンピースカード, most-populated first — see
+ * src/masterdata/onePieceColors.ts for how `color` gets populated. */
+export function listColorOptions(series: string): AttributeOption[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT color AS value, COUNT(*) AS count FROM cards
+       WHERE series = ? AND color IS NOT NULL GROUP BY color ORDER BY count DESC`
+    )
+    .all(series) as unknown as AttributeOption[];
+  // node:sqlite rows have a null prototype, which Next.js refuses to pass
+  // from a Server Component to a Client Component ("Only plain objects...
+  // are supported") — rebuild as genuine plain objects, same reason
+  // listSetOptions below builds its return value by hand instead of
+  // returning DB rows directly.
+  return rows.map((r) => ({ value: r.value, count: r.count }));
+}
+
+/** Distinct types for ポケモンカード, most-populated first — see
+ * src/masterdata/pokemonTypes.ts for how `pokemon_type` gets populated. */
+export function listPokemonTypeOptions(series: string): AttributeOption[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT pokemon_type AS value, COUNT(*) AS count FROM cards
+       WHERE series = ? AND pokemon_type IS NOT NULL GROUP BY pokemon_type ORDER BY count DESC`
+    )
+    .all(series) as unknown as AttributeOption[];
+  return rows.map((r) => ({ value: r.value, count: r.count }));
+}
+
+export function topCards(
+  sort: SortMode,
+  limit = 30,
+  series?: string,
+  setCode?: string,
+  color?: string,
+  pokemonType?: string
+): CardSummary[] {
   const db = getDb();
 
   // Pull a generous candidate pool (latest price per shop/card), then
@@ -206,17 +320,25 @@ export function topCards(sort: SortMode, limit = 30, series?: string): CardSumma
   // only exists after grouping.
   const seriesClause = series ? "AND c.series = ?" : "";
   const seriesArgs = series ? [series] : [];
+  // Matches both "SV8-001/025"-shaped numbers (LIKE "SV8-%") and bare
+  // no-hyphen codes stored as-is (= "SSG"), mirroring extractSetCode above.
+  const setClause = setCode ? "AND (c.card_number = ? OR c.card_number LIKE ?)" : "";
+  const setArgs = setCode ? [setCode, `${setCode}-%`] : [];
+  const colorClause = color ? "AND c.color = ?" : "";
+  const colorArgs = color ? [color] : [];
+  const typeClause = pokemonType ? "AND c.pokemon_type = ?" : "";
+  const typeArgs = pokemonType ? [pokemonType] : [];
   const rows = db
     .prepare(
       `${LATEST_PRICES_CTE}
-       SELECT c.id, c.canonical_name, c.rarity, c.card_number,
+       SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
        JOIN cards c ON c.id = l.card_id
        JOIN shops s ON s.id = l.shop_id
-       WHERE l.rn = 1 ${seriesClause}`
+       WHERE l.rn = 1 ${seriesClause} ${setClause} ${colorClause} ${typeClause}`
     )
-    .all(...seriesArgs) as Parameters<typeof rowsToCards>[0];
+    .all(...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs) as Parameters<typeof rowsToCards>[0];
 
   const cards = rowsToCards(rows);
 

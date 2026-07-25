@@ -50,7 +50,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="mt-4 max-w-xl text-sm text-[var(--ink-soft)] sm:text-base">
-          秋葉原のトレカ買取店の価格を一覧にまとめました。各サイトを見て回らなくても、同じカードの買取価格を1画面で比較できます。
+          秋葉原のトレカ買取店の価格を一覧にまとめました。各サイトを見て回らなくても、同じカードの買取価格を1画面で比較でき、価格推移もチャートで確認できます。
         </p>
 
         <StatsBar

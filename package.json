@@ -10,10 +10,12 @@
     "scrape:cardmax": "tsx src/run.ts --shop=cardmax",
     "scrape:otachu": "tsx src/run.ts --shop=otachu",
     "scrape:pokemon": "tsx src/run.ts --series=ポケモンカード",
+    "scrape:boxes": "tsx src/runBoxes.ts",
     "audit": "tsx src/audit.ts",
     "audit:rarity": "tsx src/audit-rarity.ts",
     "audit:cardnumber": "tsx src/audit-cardnumber.ts",
     "audit:image": "tsx src/audit-image.ts",
+    "masterdata:onepiece": "tsx src/masterdata/onePieceColors.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

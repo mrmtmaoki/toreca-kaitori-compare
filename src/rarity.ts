@@ -124,6 +124,17 @@ const ONE_PIECE_TABLE: Record<string, string> = {
   SR: "スーパーレア",
   SEC: "シークレットレア",
   P: "プロモ",
+  // "PR" (フルコンプ) and "P" (other shops) are the same プロモ tier under two
+  // different abbreviations — safe now that BRACKET_RE (variant.ts) captures
+  // shops' "[〜付録]" promo-source tags, so an unlabeled bare "PR" listing no
+  // longer collides with a *different*, specifically-labeled promo release
+  // of the same card_number (confirmed risk case: P-066 ボア・ハンコック had a
+  // ¥18,000 unlabeled "PR" listing that, pre-fix, would have wrongly merged
+  // with an unrelated ¥1,200 "[「最強ジャンプ」2024年4月付録]"-labeled one).
+  PR: "プロモ",
+  // Follows the same "base code + trailing P = (パラレル) of that tier" pattern
+  // as LP/CP/UCP/RP/SRP/SECP above (PR="プロモ" + P suffix).
+  PRP: "プロモ(パラレル)",
   SP: "スペシャルカード",
   LP: "リーダー(パラレル)",
   CP: "コモン(パラレル)",
@@ -131,6 +142,12 @@ const ONE_PIECE_TABLE: Record<string, string> = {
   RP: "レア(パラレル)",
   SRP: "スーパーレア(パラレル)",
   SECP: "シークレットレア(パラレル)",
+  // おたちゅう2号店はリーダーのパラレル無地(特殊イラストなし)を、他店が
+  // rarity="リーダー"+name側の「(パラレル)」タグで表現するのに対し、rarity欄
+  // 自体に「リーダーパラレル」とスペルアウトして書く — variant側のタグ
+  // ("パラレル版"、下のvariant.tsの正規化と対) と合わせて基本形に統一しないと
+  // 同じ実カードが2行に分裂する(2026-07-25、OP10-001含む111件で確認)。
+  リーダーパラレル: "リーダー",
 };
 
 /**
@@ -187,4 +204,27 @@ export function canonicalizeRarity(raw: string | null, series: string): string |
   // unmapped fallback too, so the two forms end up identical either way).
   const normalized = raw.normalize("NFKC").trim().replace(/\s+/g, "");
   return CI_TABLES_BY_SERIES[series]?.get(normalized.toLowerCase()) ?? normalized;
+}
+
+/**
+ * ワンピースカードのみ: おたちゅうは「無地パラレル」(特殊イラスト等の追加情報が
+ * 名前タグに一切ない、ただのパラレル)を rarity 欄だけで丸ごと表現する(例:
+ * "リーダー(パラレル)"、variant側のタグは付けない)。駿河屋/メルカード/カード
+ * マックス等の他店は同じ「無地パラレル」を rarity="リーダー"(括弧なし)+
+ * variant="パラレル" の組で表現する — 意味は同じなのに表現が2通りあり、その
+ * ままだと同じ実カードが2行に分裂する(2026-07-25、OP02-002 モンキー・D・ガープ
+ * 等で519件確認、各ペアは店舗が重複せず価格帯も近い)。名前タグに何か追加情報が
+ * 付いている場合(variantがnull以外)は本当に別の印刷([例: OP02-002の「(※ﾌﾚｰﾑﾚｽ)
+ * (原作イラスト)」付き]なので、この統一の対象外(variant IS NULLの時だけ適用)。
+ */
+export function normalizeParallelEncoding(
+  series: string,
+  rarity: string | null,
+  variant: string | null
+): { rarity: string | null; variant: string | null } {
+  const SUFFIX = "(パラレル)";
+  if (series === "ワンピースカード" && rarity?.endsWith(SUFFIX) && variant === null) {
+    return { rarity: rarity.slice(0, -SUFFIX.length), variant: "パラレル" };
+  }
+  return { rarity, variant };
 }

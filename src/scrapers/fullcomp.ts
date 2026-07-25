@@ -77,6 +77,11 @@ export const fullcompScraper: ShopScraper = {
 
         if (row.length === 8) {
           const rarityCode = row[3]?.trim() || null;
+          // row[2] is the card's elemental type (炎/水/草 etc.) — a card-level
+          // fact independent of this shop's inventory, backfilled onto
+          // cards.pokemon_type (see src/db.ts updatePokemonType) rather than
+          // treated as part of the matching key.
+          const pokemonType = row[2]?.trim() || null;
           const pokemonMatch = (row[4] ?? "").trim().match(POKEMON_NAME_RE);
           if (!pokemonMatch) return null;
           const [, cardName, numTotal, setCode, trailingMarker] = pokemonMatch;
@@ -92,6 +97,7 @@ export const fullcompScraper: ShopScraper = {
             cardNumber: isPlausibleCardNumber(numTotal) ? pokemonCardNumber : null,
             price,
             sourceUrl: targetUrl,
+            pokemonType,
           } satisfies ScrapedPrice;
         }
 

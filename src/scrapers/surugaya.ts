@@ -128,6 +128,7 @@ interface RawEntry {
   price: number;
   sourceUrl: string;
   imageUrl: string | null;
+  pokemonType: string | null;
 }
 
 const IMAGE_RESOLVE_CONCURRENCY = 5;
@@ -182,6 +183,19 @@ async function resolveImageUrls(entries: RawEntry[], cache: Map<string, string |
   }
 }
 
+// 駿河屋 lists sealed box/pack products (e.g. "【BOX】ONE PIECE カードゲーム
+// ブースターパック 新時代の主役 [OP-05]") in the same listing table as single
+// cards. These never match PRODUCT_NAME_RE (no "[rarity]：" shape), so they
+// fell through with cardNumber=null and got scraped as if they were single
+// cards with an unusually long, box-shaped name — confirmed 434 such rows
+// polluting card search/listings (2026-07-25). Genuine single cards with no
+// card number (real vintage/event promos) never start with these two
+// prefixes, confirmed by sampling every other shop's null-card_number "BOX"
+// hits, which are all real singles (e.g. "ピカチュウ(スペシャルBOXミミッキュだよ)"
+// — a card *from* a box, not the box itself) — so this is safe to skip
+// without the isPlausibleCardNumber-style risk of dropping real cards.
+export const SEALED_PRODUCT_NAME_RE = /^【\s*(?:BOX|パック)\s*】/;
+
 function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
   const results: RawEntry[] = [];
 
@@ -190,6 +204,7 @@ function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
     const productName = $row.find(".product-name").first().text().trim();
     const dataProductRaw = $row.find("input[data-product]").attr("data-product");
     if (!productName || !dataProductRaw) return;
+    if (SEALED_PRODUCT_NAME_RE.test(productName)) return;
 
     let price: number | null = null;
     try {
@@ -210,10 +225,18 @@ function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
     let rawCardNumber = match ? match[1].trim() || null : null;
     if (rawCardNumber && !isPlausibleCardNumber(rawCardNumber)) rawCardNumber = null;
     let cardNumber = rawCardNumber;
+    // .category is "game/rarity/type-or-cardtype/setName" (e.g.
+    // "ポケモンカードゲーム/MA/炎/超電ブレイカー" — the 3rd segment is the
+    // elemental type for ポケモンカード, or a card-type label for other
+    // genres). Only meaningful for Pokémon but harmless to extract regardless
+    // — pokemon_type is only ever read back for that series (see web/lib/db.ts).
+    let pokemonType: string | null = null;
     if (rawCardNumber && BARE_NUM_TOTAL_RE.test(rawCardNumber)) {
       const categoryText = $row.find(".category").first().text();
       const setLabel = extractSetLabel(categoryText);
       if (setLabel) cardNumber = `${setLabel}-${rawCardNumber}`;
+      const parts = categoryText.split("/").map((p) => p.trim()).filter(Boolean);
+      pokemonType = parts[2] || null;
     }
 
     const fullName = match ? match[3].trim() : productName;
@@ -237,6 +260,7 @@ function parsePage($: cheerio.CheerioAPI, targetUrl: string): RawEntry[] {
       price,
       sourceUrl,
       imageUrl,
+      pokemonType,
     });
   });
 
@@ -316,7 +340,98 @@ export const surugayaScraper: ShopScraper = {
         price: e.price,
         sourceUrl: e.sourceUrl,
         imageUrl: e.imageUrl,
+        pokemonType: e.pokemonType,
       };
     });
   },
 };
+
+export interface BoxScrapedPrice {
+  productName: string;
+  setCode: string | null;
+  price: number;
+  sourceUrl: string;
+}
+
+// 駿河屋's box/pack names end with the set code in brackets, e.g.
+// "【BOX】ONE PIECE カードゲーム ブースターパック 神速の拳 [OP-11]" — captures
+// "OP-11". Not always present (some listings have no trailing bracket), in
+// which case setCode stays null rather than guessing.
+const TRAILING_SET_CODE_RE = /\[([A-Za-z0-9-]+)\]\s*$/;
+
+function parseBoxPage($: cheerio.CheerioAPI, targetUrl: string): BoxScrapedPrice[] {
+  const results: BoxScrapedPrice[] = [];
+
+  $("tr.listap").each((_, row) => {
+    const $row = $(row);
+    const productName = $row.find(".product-name").first().text().trim();
+    const dataProductRaw = $row.find("input[data-product]").attr("data-product");
+    if (!productName || !dataProductRaw || !SEALED_PRODUCT_NAME_RE.test(productName)) return;
+
+    let price: number | null = null;
+    try {
+      const parsed = JSON.parse(dataProductRaw.replace(/&quot;/g, '"'));
+      price = typeof parsed.kakaku === "number" ? parsed.kakaku : Number(parsed.kakaku);
+    } catch {
+      // handled by the Number.isFinite check below
+    }
+    if (price === null || !Number.isFinite(price) || price < 0) return;
+
+    const detailHref = $row.find(".title a").first().attr("href");
+    const sourceUrl = detailHref ? new URL(detailHref, targetUrl).toString() : targetUrl;
+    const setCodeMatch = productName.match(TRAILING_SET_CODE_RE);
+
+    results.push({
+      productName,
+      setCode: setCodeMatch ? setCodeMatch[1] : null,
+      price,
+      sourceUrl,
+    });
+  });
+
+  return results;
+}
+
+/**
+ * Same pagination shape as surugayaScraper.scrape() but pulls BOX/パック
+ * (sealed product) listings instead of single cards — the two are
+ * deliberately kept as separate crawls (rather than sharing one pass) since
+ * they feed different tables (cards vs box_prices) with different shapes,
+ * and card listing pages are a small, cheap re-fetch for this shop.
+ */
+export async function scrapeSurugayaBoxes(targetUrl: string): Promise<BoxScrapedPrice[]> {
+  const allResults: BoxScrapedPrice[] = [];
+  let currentUrl: string | null = targetUrl;
+  let pageCount = 0;
+  let previousPageSignature: string | null = null;
+
+  while (currentUrl && pageCount < MAX_PAGES) {
+    const res = await fetchPageWithRetry(currentUrl);
+    if (!res || !res.ok) {
+      console.warn(
+        `  surugaya(box): ${res ? `HTTP ${res.status}` : "fetch failed"} for ${currentUrl} — stopping pagination early, keeping ${allResults.length} 件`
+      );
+      break;
+    }
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const pageResults = parseBoxPage($, currentUrl);
+
+    const signature = pageResults.map((r) => `${r.productName}:${r.price}`).join("|");
+    if (signature && signature === previousPageSignature) {
+      console.warn(`  surugaya(box): page content repeated at ${currentUrl} — real end of pagination reached`);
+      break;
+    }
+    previousPageSignature = signature;
+
+    allResults.push(...pageResults);
+    pageCount += 1;
+
+    const nextHref = $("li.next > a").first().attr("href");
+    currentUrl = nextHref ? new URL(nextHref, currentUrl).toString() : null;
+
+    if (currentUrl) await sleep(PAGE_DELAY_MS);
+  }
+
+  return allResults;
+}

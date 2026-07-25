@@ -2,6 +2,12 @@ export interface PriceEvent {
   date: string; // "YYYY-MM-DD" — a day the price actually changed
   maxPrice: number;
   medianPrice: number;
+  // Whether this point reflects a verified same-day re-check of every shop
+  // contributing to it (see web/lib/priceHistory.ts) vs an assumption that
+  // nothing changed during a gap in scrape coverage. Absent entirely for
+  // dummy/demo data, which has no such notion — treated as confirmed
+  // (renders solid) since there's nothing to distrust.
+  confirmed?: boolean;
 }
 
 export const TREND_PERIODS = [
@@ -14,8 +20,18 @@ export const TREND_PERIODS = [
 
 export type TrendPeriodKey = (typeof TREND_PERIODS)[number]["key"];
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+// JST (UTC+9), not UTC — this site and its shops are Japan-only. Using raw
+// UTC dates makes "today" resolve to the wrong calendar day for roughly nine
+// hours a day (JST 00:00-08:59, while it's still "yesterday" in UTC),
+// clipping the most recent day's point out of the resampled window —
+// exported so web/lib/priceHistory.ts's day-bucketing (and anything else
+// that needs "what JST calendar day is this instant") shares the exact same
+// definition; a mismatch between the two was already confirmed to cause a
+// real card to rank as a riser here while its own chart showed a fall (see
+// web/lib/topMovers.ts's getComparisonCutoff comment for the concrete case).
+export function toIsoDate(d: Date): string {
+  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
 }
 
 /**
@@ -105,7 +121,12 @@ export function resamplePriceTrend(
       eventIdx++;
     }
     if (lastKnown) {
-      result.push({ date: bucketEndIso, maxPrice: lastKnown.maxPrice, medianPrice: lastKnown.medianPrice });
+      result.push({
+        date: bucketEndIso,
+        maxPrice: lastKnown.maxPrice,
+        medianPrice: lastKnown.medianPrice,
+        confirmed: lastKnown.confirmed,
+      });
     }
 
     cursor.setDate(cursor.getDate() + bucketDays);

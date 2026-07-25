@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { CardSummary, SortMode } from "@/lib/db";
+import type { AttributeOption, CardSummary, SetOption, SortMode } from "@/lib/db";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "shops_desc", label: "掲載店舗数が多い順" },
@@ -15,13 +15,22 @@ export default function CardExplorer({
   initialCards,
   series,
   searchPlaceholder,
+  setOptions,
+  colorOptions,
+  typeOptions,
 }: {
   initialCards: CardSummary[];
   series: string;
   searchPlaceholder: string;
+  setOptions?: SetOption[];
+  colorOptions?: AttributeOption[];
+  typeOptions?: AttributeOption[];
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("shops_desc");
+  const [setFilter, setSetFilter] = useState("");
+  const [colorFilter, setColorFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [cards, setCards] = useState<CardSummary[]>(initialCards);
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +43,9 @@ export default function CardExplorer({
         params.set("series", series);
         if (query.trim()) params.set("q", query.trim());
         else params.set("sort", sort);
+        if (setFilter) params.set("set", setFilter);
+        if (colorFilter) params.set("color", colorFilter);
+        if (typeFilter) params.set("type", typeFilter);
 
         const res = await fetch(`/api/cards?${params.toString()}`, {
           signal: controller.signal,
@@ -53,7 +65,7 @@ export default function CardExplorer({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, sort, series]);
+  }, [query, sort, series, setFilter, colorFilter, typeFilter]);
 
   const heading = useMemo(() => {
     if (query.trim()) return `「${query.trim()}」の検索結果`;
@@ -63,8 +75,8 @@ export default function CardExplorer({
   return (
     <div className="mx-auto max-w-6xl px-5 pb-24">
       <div className="sticky top-0 z-10 -mx-5 bg-[var(--bg)]/85 px-5 py-4 backdrop-blur">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative min-w-[12rem] flex-1">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -76,11 +88,53 @@ export default function CardExplorer({
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortMode)}
-              className="rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)]"
+              className="w-full shrink-0 truncate rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)] sm:w-auto sm:max-w-[9.5rem]"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {setOptions && setOptions.length > 0 && (
+            <select
+              value={setFilter}
+              onChange={(e) => setSetFilter(e.target.value)}
+              className="w-full shrink-0 truncate rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)] sm:w-auto sm:max-w-[9.5rem]"
+            >
+              <option value="">セット: すべて</option>
+              {setOptions.map((opt) => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.code}({opt.count})
+                </option>
+              ))}
+            </select>
+          )}
+          {colorOptions && colorOptions.length > 0 && (
+            <select
+              value={colorFilter}
+              onChange={(e) => setColorFilter(e.target.value)}
+              className="w-full shrink-0 truncate rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)] sm:w-auto sm:max-w-[9.5rem]"
+            >
+              <option value="">色: すべて</option>
+              {colorOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.value}({opt.count})
+                </option>
+              ))}
+            </select>
+          )}
+          {typeOptions && typeOptions.length > 0 && (
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full shrink-0 truncate rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)] sm:w-auto sm:max-w-[9.5rem]"
+            >
+              <option value="">タイプ: すべて</option>
+              {typeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.value}({opt.count})
                 </option>
               ))}
             </select>

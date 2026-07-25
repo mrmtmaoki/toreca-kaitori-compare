@@ -56,7 +56,7 @@ export const hareruya2PokemonScraper: ShopScraper = {
 
       const match = rawName.match(NAME_RE);
       if (!match) return; // header row ("カード名"/"買取価格") or unexpected shape
-      const [, name, rarity, , numTotal, setCode] = match;
+      const [, name, rarity, pokemonType, numTotal, setCode] = match;
 
       const cardNumber = BARE_NUM_TOTAL_RE.test(numTotal) ? `${setCode}-${numTotal}` : numTotal;
 
@@ -66,6 +66,7 @@ export const hareruya2PokemonScraper: ShopScraper = {
         cardNumber,
         price,
         sourceUrl: targetUrl,
+        pokemonType: pokemonType.trim() || null,
       });
     });
 

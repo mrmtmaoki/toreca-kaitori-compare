@@ -1,16 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import TrendCard from "./TrendCard";
-import { generateDummyEvents, type DummyTrendCard } from "@/lib/dummyTrendData";
+import type { PriceEvent } from "@/lib/priceTrend";
+
+export interface TrendingCardData {
+  id: number;
+  seriesSlug: string;
+  name: string;
+  sub: string;
+  changePercent: number;
+  events: PriceEvent[];
+}
 
 export default function TrendingTabs({
   rising,
   falling,
   columns = 2,
 }: {
-  rising: DummyTrendCard[];
-  falling: DummyTrendCard[];
+  rising: TrendingCardData[];
+  falling: TrendingCardData[];
   columns?: 2 | 3;
 }) {
   const [tab, setTab] = useState<"up" | "down">("up");
@@ -37,16 +47,27 @@ export default function TrendingTabs({
         </button>
       </div>
 
-      <div className={`grid grid-cols-1 gap-4 ${columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-        {cards.map((card) => (
-          <TrendCard
-            key={card.name}
-            name={card.name}
-            sub={card.sub}
-            events={generateDummyEvents(card.days, card.base, card.seed, card.direction)}
-          />
-        ))}
-      </div>
+      {cards.length === 0 ? (
+        <p className="py-8 text-center text-xs text-[var(--ink-soft)]">対象のカードがありません</p>
+      ) : (
+        <div className={`grid grid-cols-1 gap-4 ${columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+          {cards.map((card, i) => (
+            <Link key={card.id} href={`/${card.seriesSlug}/${card.id}`} className="block">
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <span className="mono text-[10px] font-bold text-[var(--ink-soft)]">#{i + 1}</span>
+                <span
+                  className="mono text-[10px] font-bold"
+                  style={{ color: tab === "up" ? "var(--best)" : "var(--down)" }}
+                >
+                  {tab === "up" ? "+" : ""}
+                  {card.changePercent.toFixed(1)}%
+                </span>
+              </div>
+              <TrendCard name={card.name} sub={card.sub} events={card.events} />
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

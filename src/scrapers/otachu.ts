@@ -191,7 +191,13 @@ async function scrape(targetUrl: string): Promise<ScrapedPrice[]> {
 
     const combo = parseComboNameCell(fields.name);
     const { baseName, tags: freeTags } = splitNameTags(combo.name);
-    const rawNumber = combo.embeddedNumber ?? fields.number;
+    // Otachu renders a bare "-" in the No. column for cards it has no number
+    // for (its own "N/A" convention) — taken literally this becomes a fake
+    // card_number whose extracted set code is "" (everything before the
+    // first "-"), producing a blank, unfilterable phantom entry in the set
+    // dropdown. Treat it the same as no number at all.
+    const rawNumberRaw = combo.embeddedNumber ?? fields.number;
+    const rawNumber = rawNumberRaw && /^-+$/.test(rawNumberRaw) ? null : rawNumberRaw;
 
     const cardNumber =
       rawNumber && currentSetLabel && (combo.embeddedNumber || BARE_NUM_TOTAL_RE.test(rawNumber))
