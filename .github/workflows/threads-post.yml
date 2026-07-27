@@ -1,0 +1,30 @@
+name: Threads trend post
+
+on:
+  schedule:
+    # 4 slots across JST daytime (10:00/14:00/18:00/22:00 JST), 10 min off
+    # the exact hour per this repo's existing top-of-hour congestion
+    # workaround (see scrape.yml). src/postThreadsTrend.ts infers which
+    # pattern to post from wall-clock JST hour, not from any input here —
+    # all 4 schedules run the exact same job.
+    - cron: "10 1 * * *" # 10:00 JST — 急騰トレカ
+    - cron: "10 5 * * *" # 14:00 JST — 急落トレカ
+    - cron: "10 9 * * *" # 18:00 JST — 価格差ランキング
+    - cron: "10 13 * * *" # 22:00 JST — 現在の最高額トレカ
+  workflow_dispatch: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - run: npm run post:threads-trend
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}

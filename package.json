@@ -16,6 +16,7 @@
     "audit:cardnumber": "tsx src/audit-cardnumber.ts",
     "audit:image": "tsx src/audit-image.ts",
     "masterdata:onepiece": "tsx src/masterdata/onePieceColors.ts",
+    "post:threads-trend": "tsx src/postThreadsTrend.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
