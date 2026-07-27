@@ -10,7 +10,15 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${SITE_URL}/terms` },
-  openGraph: { title, description, url: `${SITE_URL}/terms`, siteName: SITE_NAME, locale: "ja_JP", type: "article" },
+  openGraph: {
+    title,
+    description,
+    url: `${SITE_URL}/terms`,
+    siteName: SITE_NAME,
+    locale: "ja_JP",
+    type: "article",
+    images: [`${SITE_URL}/opengraph-image`],
+  },
 };
 
 export default function TermsPage() {

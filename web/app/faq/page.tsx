@@ -10,7 +10,15 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${SITE_URL}/faq` },
-  openGraph: { title, description, url: `${SITE_URL}/faq`, siteName: SITE_NAME, locale: "ja_JP", type: "article" },
+  openGraph: {
+    title,
+    description,
+    url: `${SITE_URL}/faq`,
+    siteName: SITE_NAME,
+    locale: "ja_JP",
+    type: "article",
+    images: [`${SITE_URL}/opengraph-image`],
+  },
 };
 
 // `a` is what's rendered (can include real <Link>s); `aText` is the plain-text

@@ -28,7 +28,15 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, siteName: SITE_NAME, locale: "ja_JP", type: "website" },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      locale: "ja_JP",
+      type: "website",
+      images: [`${SITE_URL}/opengraph-image`],
+    },
     twitter: { card: "summary_large_image", title, description },
   };
 }

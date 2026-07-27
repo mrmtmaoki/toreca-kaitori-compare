@@ -51,7 +51,7 @@ export async function generateMetadata({
       siteName: SITE_NAME,
       locale: "ja_JP",
       type: "website",
-      images: card.imageUrl ? [{ url: card.imageUrl }] : undefined,
+      images: card.imageUrl ? [{ url: card.imageUrl }] : [`${SITE_URL}/opengraph-image`],
     },
     twitter: { card: "summary_large_image", title, description },
   };

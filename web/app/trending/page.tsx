@@ -17,7 +17,15 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${SITE_URL}/trending` },
-  openGraph: { title, description, url: `${SITE_URL}/trending`, siteName: SITE_NAME, locale: "ja_JP", type: "website" },
+  openGraph: {
+    title,
+    description,
+    url: `${SITE_URL}/trending`,
+    siteName: SITE_NAME,
+    locale: "ja_JP",
+    type: "website",
+    images: [`${SITE_URL}/opengraph-image`],
+  },
   twitter: { card: "summary_large_image", title, description },
 };
 

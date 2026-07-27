@@ -1,16 +1,19 @@
 name: Threads trend post
 
 on:
-  schedule:
-    # 4 slots across JST daytime (10:00/14:00/18:00/22:00 JST), 10 min off
-    # the exact hour per this repo's existing top-of-hour congestion
-    # workaround (see scrape.yml). src/postThreadsTrend.ts infers which
-    # pattern to post from wall-clock JST hour, not from any input here —
-    # all 4 schedules run the exact same job.
-    - cron: "10 1 * * *" # 10:00 JST — 急騰トレカ
-    - cron: "10 5 * * *" # 14:00 JST — 急落トレカ
-    - cron: "10 9 * * *" # 18:00 JST — 価格差ランキング
-    - cron: "10 13 * * *" # 22:00 JST — 現在の最高額トレカ
+  # Schedule intentionally disabled until 2026-07-28 (user wanted the 4x/day
+  # rotation to start "from tomorrow", not mid-day today) — re-enable by
+  # uncommenting the `schedule:` block below.
+  # schedule:
+  #   # 4 slots across JST daytime (10:00/14:00/18:00/22:00 JST), 10 min off
+  #   # the exact hour per this repo's existing top-of-hour congestion
+  #   # workaround (see scrape.yml). src/postThreadsTrend.ts infers which
+  #   # pattern to post from wall-clock JST hour, not from any input here —
+  #   # all 4 schedules run the exact same job.
+  #   - cron: "10 1 * * *" # 10:00 JST — 急騰トレカ
+  #   - cron: "10 5 * * *" # 14:00 JST — 急落トレカ
+  #   - cron: "10 9 * * *" # 18:00 JST — 価格差ランキング
+  #   - cron: "10 13 * * *" # 22:00 JST — 現在の最高額トレカ
   workflow_dispatch: {}
 
 jobs:
