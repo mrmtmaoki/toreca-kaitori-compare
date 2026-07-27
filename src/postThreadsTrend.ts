@@ -51,8 +51,14 @@ function todayJstLabel(): string {
 /** Picks the pattern by nearest of the 4 scheduled JST hours (10/14/18/22)
  * to the current run time, so the workflow's 4 cron triggers don't need to
  * pass any input — the script infers "which slot is this" from wall-clock
- * time. */
+ * time. `--pattern=risers|fallers|gap|top` overrides this for manual/
+ * one-off runs (e.g. `npm run post:threads-trend -- --pattern=risers`). */
 function pickPattern(): Pattern {
+  const override = process.argv.find((a) => a.startsWith("--pattern="))?.slice("--pattern=".length);
+  if (override === "risers" || override === "fallers" || override === "gap" || override === "top") {
+    return override;
+  }
+
   const now = new Date();
   const jstHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
   const slots: { hour: number; pattern: Pattern }[] = [
