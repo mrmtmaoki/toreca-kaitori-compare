@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStats, topCards } from "@/lib/db";
 import { SERIES_LIST } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import AffiliateBanner from "./AffiliateBanner";
 import SiteFooter from "./SiteFooter";
 import StatsBar from "./StatsBar";
 import TrendingPicks from "./TrendingPicks";
@@ -102,6 +103,8 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      <AffiliateBanner />
 
       <SiteFooter />
     </main>
