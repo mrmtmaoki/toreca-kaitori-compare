@@ -3,12 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { AttributeOption, CardSummary, SetOption, SortMode } from "@/lib/db";
+import type { AreaFilter, AttributeOption, CardSummary, SetOption, SortMode } from "@/lib/db";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "shops_desc", label: "掲載店舗数が多い順" },
   { value: "price_desc", label: "最高価格が高い順" },
   { value: "price_asc", label: "最安価格が安い順" },
+];
+
+const AREA_OPTIONS: { value: AreaFilter | ""; label: string }[] = [
+  { value: "", label: "エリア: すべて" },
+  { value: "秋葉原", label: "秋葉原の店舗" },
+  { value: "宅配", label: "全国宅配買取" },
 ];
 
 export default function CardExplorer({
@@ -31,6 +37,7 @@ export default function CardExplorer({
   const [setFilter, setSetFilter] = useState("");
   const [colorFilter, setColorFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [areaFilter, setAreaFilter] = useState<AreaFilter | "">("");
   const [cards, setCards] = useState<CardSummary[]>(initialCards);
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +53,7 @@ export default function CardExplorer({
         if (setFilter) params.set("set", setFilter);
         if (colorFilter) params.set("color", colorFilter);
         if (typeFilter) params.set("type", typeFilter);
+        if (areaFilter) params.set("area", areaFilter);
 
         const res = await fetch(`/api/cards?${params.toString()}`, {
           signal: controller.signal,
@@ -65,7 +73,7 @@ export default function CardExplorer({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, sort, series, setFilter, colorFilter, typeFilter]);
+  }, [query, sort, series, setFilter, colorFilter, typeFilter, areaFilter]);
 
   const heading = useMemo(() => {
     if (query.trim()) return `「${query.trim()}」の検索結果`;
@@ -139,6 +147,17 @@ export default function CardExplorer({
               ))}
             </select>
           )}
+          <select
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value as AreaFilter | "")}
+            className="w-full shrink-0 truncate rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[var(--gold)] sm:w-auto sm:max-w-[9.5rem]"
+          >
+            {AREA_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -232,7 +251,14 @@ function CardTile({ card, series }: { card: CardSummary; series: string }) {
                     : "bg-white/[0.03] text-[var(--ink)] hover:bg-white/[0.06]"
                 }`}
               >
-                <span className="truncate">{p.shopName}</span>
+                <span className="flex min-w-0 items-center gap-1.5 truncate">
+                  <span className="truncate">{p.shopName}</span>
+                  {p.area === "宅配" && (
+                    <span className="mono shrink-0 rounded-full bg-[var(--delivery-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--delivery)]">
+                      宅配
+                    </span>
+                  )}
+                </span>
                 <span className="mono font-bold">¥{p.price.toLocaleString()}</span>
               </a>
             </li>

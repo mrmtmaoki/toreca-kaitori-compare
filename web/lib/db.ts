@@ -38,6 +38,7 @@ export function getDb(): DatabaseSync {
 
 export interface ShopPrice {
   shopName: string;
+  area: "秋葉原" | "宅配";
   price: number;
   sourceUrl: string;
   scrapedAt: string;
@@ -58,9 +59,23 @@ export interface CardSummary {
 }
 
 const SHOP_LABELS: Record<string, string> = Object.fromEntries(SHOPS.map((s) => [s.id, s.name]));
+const SHOP_AREAS: Record<string, "秋葉原" | "宅配"> = Object.fromEntries(SHOPS.map((s) => [s.id, s.area]));
 
 function labelForShop(name: string): string {
   return SHOP_LABELS[name] ?? name;
+}
+
+// Falls back to "秋葉原" for any shop not (yet) listed in SHOPS — matches
+// this project's existing default before the 2026-07-27 宅配 expansion,
+// so an unrecognized shop_id never silently mislabels as 宅配.
+function areaForShop(name: string): "秋葉原" | "宅配" {
+  return SHOP_AREAS[name] ?? "秋葉原";
+}
+
+export type AreaFilter = "秋葉原" | "宅配";
+
+function shopIdsForArea(area: AreaFilter): string[] {
+  return SHOPS.filter((s) => s.area === area).map((s) => s.id);
 }
 
 const LATEST_PRICES_CTE = `
@@ -129,6 +144,7 @@ function rowsToCards(
     }
     card.prices.push({
       shopName: labelForShop(row.shop_name),
+      area: areaForShop(row.shop_name),
       price: row.price,
       sourceUrl: toAffiliateUrl(row.shop_name, row.source_url),
       scrapedAt: row.scraped_at,
@@ -154,7 +170,8 @@ export function searchCards(
   limit = 60,
   setCode?: string,
   color?: string,
-  pokemonType?: string
+  pokemonType?: string,
+  area?: AreaFilter
 ): CardSummary[] {
   const db = getDb();
   const like = `%${query}%`;
@@ -166,6 +183,9 @@ export function searchCards(
   const colorArgs = color ? [color] : [];
   const typeClause = pokemonType ? "AND pokemon_type = ?" : "";
   const typeArgs = pokemonType ? [pokemonType] : [];
+  const areaShopIds = area ? shopIdsForArea(area) : null;
+  const areaClause = areaShopIds ? `AND s.name IN (${areaShopIds.map(() => "?").join(",")})` : "";
+  const areaArgs = areaShopIds ?? [];
   const rows = db
     .prepare(
       `${LATEST_PRICES_CTE}
@@ -174,7 +194,7 @@ export function searchCards(
        FROM latest l
        JOIN cards c ON c.id = l.card_id
        JOIN shops s ON s.id = l.shop_id
-       WHERE l.rn = 1
+       WHERE l.rn = 1 ${areaClause}
          AND c.id IN (
            SELECT id FROM cards
            WHERE (canonical_name LIKE ? OR card_number LIKE ?) ${seriesClause} ${setClause} ${colorClause} ${typeClause}
@@ -182,7 +202,7 @@ export function searchCards(
          )
        ORDER BY c.canonical_name`
     )
-    .all(like, like, ...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs, limit) as Parameters<
+    .all(...areaArgs, like, like, ...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs, limit) as Parameters<
     typeof rowsToCards
   >[0];
 
@@ -311,7 +331,8 @@ export function topCards(
   series?: string,
   setCode?: string,
   color?: string,
-  pokemonType?: string
+  pokemonType?: string,
+  area?: AreaFilter
 ): CardSummary[] {
   const db = getDb();
 
@@ -328,6 +349,9 @@ export function topCards(
   const colorArgs = color ? [color] : [];
   const typeClause = pokemonType ? "AND c.pokemon_type = ?" : "";
   const typeArgs = pokemonType ? [pokemonType] : [];
+  const areaShopIds = area ? shopIdsForArea(area) : null;
+  const areaClause = areaShopIds ? `AND s.name IN (${areaShopIds.map(() => "?").join(",")})` : "";
+  const areaArgs = areaShopIds ?? [];
   const rows = db
     .prepare(
       `${LATEST_PRICES_CTE}
@@ -336,9 +360,11 @@ export function topCards(
        FROM latest l
        JOIN cards c ON c.id = l.card_id
        JOIN shops s ON s.id = l.shop_id
-       WHERE l.rn = 1 ${seriesClause} ${setClause} ${colorClause} ${typeClause}`
+       WHERE l.rn = 1 ${seriesClause} ${setClause} ${colorClause} ${typeClause} ${areaClause}`
     )
-    .all(...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs) as Parameters<typeof rowsToCards>[0];
+    .all(...seriesArgs, ...setArgs, ...colorArgs, ...typeArgs, ...areaArgs) as Parameters<
+    typeof rowsToCards
+  >[0];
 
   const cards = rowsToCards(rows);
 

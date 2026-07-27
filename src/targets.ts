@@ -1,13 +1,18 @@
 import { discoverCardmaxSequentialSetUrls, discoverCardmaxSetUrls } from "./cardmax-discovery.js";
+import { discoverHobbystationSetUrls } from "./hobbystation-discovery.js";
 import { cardmaxScraper } from "./scrapers/cardmax.js";
 import { fullcompScraper } from "./scrapers/fullcomp.js";
 import { hareruya2PokemonScraper } from "./scrapers/hareruya2.js";
+import { hobbystationScraper } from "./scrapers/hobbystation.js";
 import { kaizokuoOnePieceScraper, kaizokuoPokemonScraper } from "./scrapers/kaizokuo.js";
 import { mercardOnePieceScraper } from "./scrapers/mercard.js";
 import { createOtachuScraper, otachuScraper } from "./scrapers/otachu.js";
 import { surugayaScraper } from "./scrapers/surugaya.js";
+import { toretokuScraper } from "./scrapers/toretoku.js";
 import { yellowSubmarineYugiohScraper } from "./scrapers/yellowsubmarine.js";
+import { yuyuteiScraper } from "./scrapers/yuyutei.js";
 import type { ShopScraper } from "./types.js";
+import { discoverYuyuteiSetUrls } from "./yuyutei-discovery.js";
 
 const otachu2Scraper = createOtachuScraper("otachu2", "おたちゅう。秋葉原2号店");
 
@@ -163,6 +168,29 @@ export const scrapeTargets: ScrapeTarget[] = [
       "https://www.hareruya2.com/pages/buying-list-bw", // BW
     ],
   },
+
+  // --- 宅配買取(全国) 2026-07-27追加 ---
+  // トレトクは1ジャンル=1静的ページに全カードが載っているため(クライアント側の
+  // 検索/絞り込みはCSS表示切り替えのみ、生HTMLに全件ある)、他店のような
+  // セット単位のディスカバリーが不要。
+  {
+    scraper: toretokuScraper,
+    shopUrl: "https://kaitori-toretoku.jp",
+    series: "遊戯王",
+    pages: ["https://kaitori-toretoku.jp/buypricelist/yugioh"],
+  },
+  {
+    scraper: toretokuScraper,
+    shopUrl: "https://kaitori-toretoku.jp",
+    series: "ワンピースカード",
+    pages: ["https://kaitori-toretoku.jp/buypricelist/onepiece"],
+  },
+  {
+    scraper: toretokuScraper,
+    shopUrl: "https://kaitori-toretoku.jp",
+    series: "ポケモンカード",
+    pages: ["https://kaitori-toretoku.jp/buypricelist/pokemon"],
+  },
 ];
 
 /**
@@ -190,5 +218,43 @@ export const dynamicScrapeTargets: DynamicScrapeTarget[] = [
     series: "ポケモンカード",
     discoverPages: () =>
       discoverCardmaxSetUrls("https://www.akiba.cardmax.jp/shopbrand/goods04/", "pk"),
+  },
+
+  // --- 宅配買取(全国) 2026-07-27追加 ---
+  {
+    scraper: yuyuteiScraper,
+    shopUrl: "https://yuyu-tei.jp",
+    series: "遊戯王",
+    discoverPages: () => discoverYuyuteiSetUrls("ygo"),
+  },
+  {
+    scraper: yuyuteiScraper,
+    shopUrl: "https://yuyu-tei.jp",
+    series: "ワンピースカード",
+    discoverPages: () => discoverYuyuteiSetUrls("opc"),
+  },
+  {
+    scraper: yuyuteiScraper,
+    shopUrl: "https://yuyu-tei.jp",
+    series: "ポケモンカード",
+    discoverPages: () => discoverYuyuteiSetUrls("poc"),
+  },
+  {
+    scraper: hobbystationScraper,
+    shopUrl: "https://www.hobbystation-single.jp",
+    series: "遊戯王",
+    discoverPages: () => discoverHobbystationSetUrls("yg"),
+  },
+  {
+    scraper: hobbystationScraper,
+    shopUrl: "https://www.hobbystation-single.jp",
+    series: "ワンピースカード",
+    discoverPages: () => discoverHobbystationSetUrls("op"),
+  },
+  {
+    scraper: hobbystationScraper,
+    shopUrl: "https://www.hobbystation-single.jp",
+    series: "ポケモンカード",
+    discoverPages: () => discoverHobbystationSetUrls("pk"),
   },
 ];

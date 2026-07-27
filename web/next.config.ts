@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "otachu-akiba.com" },
       { protocol: "https", hostname: "www.mercardop.jp" },
       { protocol: "https", hostname: "www.onepiece-cardgame.com" },
+      // 2026-07-27 宅配買取拡張: 遊々亭/ホビーステーション/トレトク
+      { protocol: "https", hostname: "card.yuyu-tei.jp" },
+      { protocol: "https", hostname: "www.hobbystation-single.jp" },
+      { protocol: "https", hostname: "yamatokuimg.blob.core.windows.net" },
     ],
   },
 };

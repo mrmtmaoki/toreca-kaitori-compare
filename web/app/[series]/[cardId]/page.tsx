@@ -130,7 +130,14 @@ export default async function CardDetailPage({
                       : "bg-white/[0.03] text-[var(--ink)] hover:bg-white/[0.06]"
                   }`}
                 >
-                  <span className="truncate">{p.shopName}</span>
+                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                    <span className="truncate">{p.shopName}</span>
+                    {p.area === "宅配" && (
+                      <span className="mono shrink-0 rounded-full bg-[var(--delivery-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--delivery)]">
+                        宅配
+                      </span>
+                    )}
+                  </span>
                   <span className="mono font-bold">¥{p.price.toLocaleString()}</span>
                 </a>
               </li>

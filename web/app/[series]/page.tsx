@@ -27,7 +27,7 @@ export async function generateMetadata({
   if (!series) return {};
 
   const title = `${series.label}買取価格 一括比較｜${SITE_NAME}`;
-  const description = `${series.tagline}。秋葉原の買取店の価格を横断比較し、同じカードがどこで一番高く売れるか一発で分かります。`;
+  const description = `${series.tagline}。秋葉原の買取店と全国対応の宅配買取の価格を横断比較し、同じカードがどこで一番高く売れるか一発で分かります。`;
   const url = `${SITE_URL}/${series.slug}`;
 
   return {

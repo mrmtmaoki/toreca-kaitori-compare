@@ -13,6 +13,8 @@
   --best-soft: #123329;
   --down: #e8636b;
   --down-soft: #3a1418;
+  --delivery: #6badf0;
+  --delivery-soft: #16273d;
   --bg-glow: #1a2036;
   --radius: 16px;
 }
@@ -30,6 +32,8 @@
   --best-soft: #d9f2e6;
   --down: #c23b45;
   --down-soft: #f8dee0;
+  --delivery: #1a6fb0;
+  --delivery-soft: #dceaf7;
   --bg-glow: #fff3d6;
 }
 
