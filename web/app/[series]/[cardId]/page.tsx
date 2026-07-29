@@ -69,8 +69,31 @@ export default async function CardDetailPage({
 
   const events = getCardPriceHistory(card.id, series.name);
 
+  // Product/AggregateOffer with businessFunction=Buy (GoodRelations vocabulary)
+  // explicitly marks this as a buyback quote — "shops will pay you this much
+  // for the item" — not a purchase listing. Using the default (implicit
+  // Sell/LeaseOut) businessFunction here would misrepresent what the price
+  // means; this is the correct schema.org-sanctioned way to say "we buy",
+  // not "we sell", at this price.
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `${card.name}の買取`,
+    description: `${card.name}の買取価格を${card.shopCount}店舗で比較。最高¥${card.maxPrice.toLocaleString()}。`,
+    ...(card.imageUrl ? { image: [card.imageUrl] } : {}),
+    offers: {
+      "@type": "AggregateOffer",
+      businessFunction: "http://purl.org/goodrelations/v1#Buy",
+      priceCurrency: "JPY",
+      lowPrice: card.minPrice,
+      highPrice: card.maxPrice,
+      offerCount: card.shopCount,
+    },
+  };
+
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <Link
         href={`/${series.slug}`}
         className="mono inline-block text-xs tracking-[0.25em] text-[var(--gold)] uppercase hover:underline"
