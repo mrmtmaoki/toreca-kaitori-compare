@@ -1,11 +1,10 @@
 /**
- * Posts one of 4 rotating trend summaries to Threads, chosen by which of the
- * day's 4 JST time slots (10:00/14:00/18:00/22:00, see
- * .github/workflows/threads-post.yml) triggered this run. Since the price
- * data itself only refreshes once/day (the 05:05 JST scrape), these 4 posts
- * share the same underlying snapshot but present different angles of it —
- * this is about spreading discovery touchpoints across the day for a
- * brand-new account, not about posting fresher data each time.
+ * Posts one of 4 rotating trend summaries to Threads, one per day per slot
+ * (target times 10:00/14:00/18:00/22:00 JST). Since the price data itself
+ * only refreshes once/day (the 05:05 JST scrape), these 4 posts share the
+ * same underlying snapshot but present different angles of it — this is
+ * about spreading discovery touchpoints across the day for a brand-new
+ * account, not about posting fresher data each time.
  *
  * Patterns:
  *   1. 急騰トレカ (risers)   — biggest gainer per genre vs ~30 days ago
@@ -18,6 +17,11 @@
  *      price difference).
  *   4. 現在の最高額トレカ     — highest current buyback price per genre
  *
+ * Which slot to post is decided by polling, not by a single exact-time cron
+ * trigger — see pickDuePattern's doc comment for why (GitHub Actions
+ * schedule delays/drops, observed directly in this repo's own Actions run
+ * history around 2026-07-28〜30).
+ *
  * Risers/fallers logic mirrors web/lib/topMovers.ts's getTopMoverPerGenre in
  * plain SQL (duplicated, not imported, since this runs standalone via
  * GitHub Actions, not inside the Next.js app — see that file's comments for
@@ -27,6 +31,7 @@
  * API token; GitHub Actions injects it from the repo's THREADS_ACCESS_TOKEN
  * secret). Long-lived tokens expire after 60 days and need manual renewal.
  */
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { openDb } from "./db.js";
 
 const SITE_URL = "https://kaitori-radar.netlify.app";
@@ -48,58 +53,65 @@ function todayJstLabel(): string {
   return `${jst.getUTCMonth() + 1}/${jst.getUTCDate()}`;
 }
 
-// Maps each of the workflow's 4 schedule triggers (see
-// .github/workflows/threads-post.yml) directly to its pattern, keyed by the
-// exact cron string GitHub reports via `github.event.schedule` /
-// THREADS_SCHEDULE. Deliberately not derived from wall-clock time: GitHub
-// Actions has been delaying this workflow by hours (confirmed via the
-// Actions run history — two runs meant for the 18:10/22:10 JST slots both
-// landed between 00:00-03:00 JST the next day, under 2 hours apart), and a
-// wall-clock "nearest of the 4 hours" guess made both resolve to the same
-// pattern, posting near-duplicate content far closer together than the
-// intended 4-hour cadence.
-const SCHEDULE_PATTERNS: Record<string, Pattern> = {
-  "10 1 * * *": "risers", // 10:00 JST
-  "10 5 * * *": "fallers", // 14:00 JST
-  "10 9 * * *": "gap", // 18:00 JST
-  "10 13 * * *": "top", // 22:00 JST
-};
+const SLOTS: { hour: number; pattern: Pattern }[] = [
+  { hour: 10, pattern: "risers" },
+  { hour: 14, pattern: "fallers" },
+  { hour: 18, pattern: "gap" },
+  { hour: 22, pattern: "top" },
+];
 
-/** `--pattern=risers|fallers|gap|top` overrides everything below, for manual/
- * one-off runs (e.g. `npm run post:threads-trend -- --pattern=risers`).
- * Otherwise uses THREADS_SCHEDULE (see SCHEDULE_PATTERNS above) when this run
- * was triggered by one of the 4 known crons. Falls back to guessing from the
- * nearest of the 4 JST hours only when neither is available (e.g. a manual
- * workflow_dispatch run with no --pattern, or local testing) — a rough
- * approximation that's fine there since duplicate-post risk only exists for
- * scheduled runs. */
-function pickPattern(): Pattern {
-  const override = process.argv.find((a) => a.startsWith("--pattern="))?.slice("--pattern=".length);
-  if (override === "risers" || override === "fallers" || override === "gap" || override === "top") {
-    return override;
+// Committed back to the repo by .github/workflows/threads-post.yml's
+// "Commit updated post state" step, the same pattern src/run.ts's daily
+// scrape uses for data/kaitori.db — small enough that committing it every
+// ~30 min doesn't matter, and keeping it out of kaitori.db avoids racing
+// that file's own daily-scrape/masterdata commits.
+const STATE_PATH = "data/threads-post-state.json";
+
+interface PostState {
+  date: string; // JST calendar day, "YYYY-MM-DD" — posted[] resets whenever this is stale
+  posted: Pattern[];
+}
+
+function todayJstIso(now: Date): string {
+  return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function loadState(now: Date): PostState {
+  const today = todayJstIso(now);
+  if (!existsSync(STATE_PATH)) return { date: today, posted: [] };
+  const raw = JSON.parse(readFileSync(STATE_PATH, "utf8")) as PostState;
+  return raw.date === today ? raw : { date: today, posted: [] };
+}
+
+function saveState(state: PostState): void {
+  writeFileSync(STATE_PATH, JSON.stringify(state));
+}
+
+/**
+ * Picks the earliest of today's 4 JST slots whose target time has already
+ * passed but hasn't been posted yet, instead of trying to identify "which
+ * slot is this run" from wall-clock proximity or from which cron string
+ * fired. Both of those assume the workflow runs (roughly) once per intended
+ * slot — GitHub Actions doesn't actually guarantee that for `schedule`
+ * triggers: this repo's own Actions run history shows delays of several
+ * hours, and on 2026-07-30 two consecutive daily slots were dropped
+ * entirely (no run at all, not even a late one). The workflow now polls
+ * every 30 minutes instead of relying on 4 exact-time crons; this function
+ * plus the committed `posted` state is what makes that self-healing — a
+ * missed or delayed trigger just gets caught by the next poll, and a slot
+ * already posted today is never re-posted no matter how many polls land
+ * after it. Returns null when every due slot is already posted (the common
+ * case between slots) or the day's first slot hasn't arrived yet.
+ */
+function pickDuePattern(state: PostState, now: Date): Pattern | null {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const jstHour = jst.getUTCHours();
+  const jstMinute = jst.getUTCMinutes();
+  for (const s of SLOTS) {
+    const due = jstHour > s.hour || (jstHour === s.hour && jstMinute >= 10);
+    if (due && !state.posted.includes(s.pattern)) return s.pattern;
   }
-
-  const scheduled = SCHEDULE_PATTERNS[process.env.THREADS_SCHEDULE ?? ""];
-  if (scheduled) return scheduled;
-
-  const now = new Date();
-  const jstHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
-  const slots: { hour: number; pattern: Pattern }[] = [
-    { hour: 10, pattern: "risers" },
-    { hour: 14, pattern: "fallers" },
-    { hour: 18, pattern: "gap" },
-    { hour: 22, pattern: "top" },
-  ];
-  let best = slots[0];
-  let bestDist = 24;
-  for (const s of slots) {
-    const dist = Math.min(Math.abs(jstHour - s.hour), 24 - Math.abs(jstHour - s.hour));
-    if (dist < bestDist) {
-      best = s;
-      bestDist = dist;
-    }
-  }
-  return best.pattern;
+  return null;
 }
 
 function getComparisonCutoff(db: ReturnType<typeof openDb>): string | null {
@@ -304,8 +316,18 @@ async function main() {
   const accessToken = process.env.THREADS_ACCESS_TOKEN;
   if (!accessToken) throw new Error("THREADS_ACCESS_TOKEN is not set");
 
-  const pattern = pickPattern();
-  console.log("選択パターン:", pattern);
+  const now = new Date();
+  const override = process.argv.find((a) => a.startsWith("--pattern="))?.slice("--pattern=".length);
+  const overridePattern =
+    override === "risers" || override === "fallers" || override === "gap" || override === "top" ? override : null;
+
+  const state = loadState(now);
+  const pattern = overridePattern ?? pickDuePattern(state, now);
+  if (!pattern) {
+    console.log("投稿対象の枠なし(本日分は投稿済み、またはまだどの枠の時刻にも達していない)。スキップ");
+    return;
+  }
+  console.log("選択パターン:", pattern, overridePattern ? "(--pattern指定)" : "");
 
   const db = openDb();
 
@@ -338,6 +360,12 @@ async function main() {
 
   console.log("投稿内容:\n" + text);
   await postToThreads(text, accessToken);
+
+  // Recorded for both scheduled and --pattern-overridden posts — an override
+  // run still counts as "today's risers post happened", so a later poll
+  // doesn't post the same slot again.
+  state.posted.push(pattern);
+  saveState(state);
 }
 
 main().catch((err) => {

@@ -1,9 +1,12 @@
 node_modules/
 dist/
-# Only data/kaitori.db itself is tracked (committed daily by the GitHub
-# Actions scrape workflow so it doubles as the price-history datastore) —
-# everything else in data/ (backups, journal files, scratch exports) stays
-# untracked.
+# Only data/kaitori.db and data/threads-post-state.json are tracked
+# (committed by their respective GitHub Actions workflows — kaitori.db
+# doubles as the price-history datastore, threads-post-state.json as
+# .github/workflows/threads-post.yml's "already posted today" marker, see
+# src/postThreadsTrend.ts) — everything else in data/ (backups, journal
+# files, scratch exports) stays untracked.
 data/*
 !data/kaitori.db
+!data/threads-post-state.json
 .env

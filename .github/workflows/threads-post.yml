@@ -2,16 +2,24 @@ name: Threads trend post
 
 on:
   schedule:
-    # 4 slots across JST daytime (10:00/14:00/18:00/22:00 JST), 10 min off
-    # the exact hour per this repo's existing top-of-hour congestion
-    # workaround (see scrape.yml). src/postThreadsTrend.ts infers which
-    # pattern to post from wall-clock JST hour, not from any input here —
-    # all 4 schedules run the exact same job.
-    - cron: "10 1 * * *" # 10:00 JST — 急騰トレカ
-    - cron: "10 5 * * *" # 14:00 JST — 急落トレカ
-    - cron: "10 9 * * *" # 18:00 JST — 価格差ランキング
-    - cron: "10 13 * * *" # 22:00 JST — 現在の最高額トレカ
+    # Polls every 30 min instead of scheduling one cron per target slot
+    # (10:00/14:00/18:00/22:00 JST) — GitHub Actions `schedule` triggers
+    # aren't guaranteed to fire on time (GitHub's own docs say so), and this
+    # repo has seen it firsthand: multi-hour delays, and on 2026-07-30 two
+    # consecutive daily slots were dropped entirely (no run at all).
+    # src/postThreadsTrend.ts's pickDuePattern() + the state file committed
+    # below decide, each poll, whether any slot is due and not yet posted —
+    # a missed exact-time trigger just gets caught by the next poll instead
+    # of silently losing that slot for the day.
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: threads-post
+  cancel-in-progress: false
 
 jobs:
   post:
@@ -28,9 +36,27 @@ jobs:
       - run: npm run post:threads-trend
         env:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
-          # The exact cron string that triggered this run (e.g. "10 1 * * *"),
-          # empty for workflow_dispatch. src/postThreadsTrend.ts maps this
-          # directly to a pattern instead of guessing from wall-clock time —
-          # see that file's pickPattern() for why wall-clock guessing broke
-          # under GitHub's multi-hour scheduling delays.
-          THREADS_SCHEDULE: ${{ github.event.schedule }}
+
+      - name: Commit updated post state
+        run: |
+          # Most polls between slots post nothing, so the state file often
+          # doesn't change (or, before the day's first post, doesn't exist
+          # yet) — nothing to commit is the common case here, not an error.
+          if [ ! -f data/threads-post-state.json ]; then
+            echo "no state file yet (nothing posted this run), skipping commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/threads-post-state.json
+          git diff --staged --quiet || git commit -m "chore: threads post state $(date -u +%Y-%m-%dT%H-%M-%SZ)"
+          # Same retry-on-push-conflict shape as scrape.yml, since polling
+          # every 30 min makes a landed-in-between commit on main more
+          # likely than this workflow saw before.
+          for i in 1 2 3; do
+            git push && exit 0
+            echo "push rejected (attempt $i), retrying after rebase"
+            git fetch origin main
+            git rebase origin/main
+          done
+          git push
