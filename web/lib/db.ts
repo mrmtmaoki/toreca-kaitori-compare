@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { SHOPS } from "./shops";
+import { EXCLUDED_SHOP_IDS, SHOPS } from "./shops";
 import { toAffiliateUrl } from "./affiliateLinks";
 
 let db: DatabaseSync | null = null;
@@ -78,21 +78,41 @@ function shopIdsForArea(area: AreaFilter): string[] {
   return SHOPS.filter((s) => s.area === area).map((s) => s.id);
 }
 
-const LATEST_PRICES_CTE = `
-  WITH latest AS (
-    SELECT
-      pr.card_id,
-      pr.shop_id,
-      pr.price,
-      pr.source_url,
-      pr.image_url,
-      pr.scraped_at,
-      ROW_NUMBER() OVER (
-        PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC
-      ) AS rn
-    FROM price_records pr
-  )
-`;
+let excludedShopDbIdsCache: number[] | null = null;
+
+/** DB-integer ids for EXCLUDED_SHOP_IDS, resolved once (the shops table's
+ * id<->name mapping never changes without a redeploy). */
+export function getExcludedShopDbIds(db: DatabaseSync): number[] {
+  if (excludedShopDbIdsCache) return excludedShopDbIdsCache;
+  if (EXCLUDED_SHOP_IDS.length === 0) return (excludedShopDbIdsCache = []);
+  const placeholders = EXCLUDED_SHOP_IDS.map(() => "?").join(",");
+  const rows = db
+    .prepare(`SELECT id FROM shops WHERE name IN (${placeholders})`)
+    .all(...EXCLUDED_SHOP_IDS) as { id: number }[];
+  excludedShopDbIdsCache = rows.map((r) => r.id);
+  return excludedShopDbIdsCache;
+}
+
+function latestPricesCte(db: DatabaseSync): string {
+  const excludedIds = getExcludedShopDbIds(db);
+  const exclusionClause = excludedIds.length > 0 ? `WHERE pr.shop_id NOT IN (${excludedIds.join(",")})` : "";
+  return `
+    WITH latest AS (
+      SELECT
+        pr.card_id,
+        pr.shop_id,
+        pr.price,
+        pr.source_url,
+        pr.image_url,
+        pr.scraped_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC
+        ) AS rn
+      FROM price_records pr
+      ${exclusionClause}
+    )
+  `;
+}
 
 function rowsToCards(
   rows: {
@@ -188,7 +208,7 @@ export function searchCards(
   const areaArgs = areaShopIds ?? [];
   const rows = db
     .prepare(
-      `${LATEST_PRICES_CTE}
+      `${latestPricesCte(db)}
        SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
@@ -215,7 +235,7 @@ export function getCardById(id: number, series?: string): CardSummary | null {
   const args: (number | string)[] = series ? [id, series] : [id];
   const rows = db
     .prepare(
-      `${LATEST_PRICES_CTE}
+      `${latestPricesCte(db)}
        SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
@@ -354,7 +374,7 @@ export function topCards(
   const areaArgs = areaShopIds ?? [];
   const rows = db
     .prepare(
-      `${LATEST_PRICES_CTE}
+      `${latestPricesCte(db)}
        SELECT c.id, c.canonical_name, c.rarity, c.card_number, c.color, c.pokemon_type, c.official_image_url,
               s.name AS shop_name, l.price, l.source_url, l.image_url, l.scraped_at
        FROM latest l
@@ -387,14 +407,24 @@ export interface Stats {
 export function getStats(series?: string): Stats {
   const db = getDb();
 
+  const excludedIds = getExcludedShopDbIds(db);
+  const excludedClause = excludedIds.length > 0 ? `AND pr.shop_id NOT IN (${excludedIds.join(",")})` : "";
+  const excludedShopsClause = excludedIds.length > 0 ? `WHERE id NOT IN (${excludedIds.join(",")})` : "";
+
   if (!series) {
-    const shopCount = (db.prepare(`SELECT COUNT(*) AS c FROM shops`).get() as { c: number }).c;
+    const shopCount = (
+      db.prepare(`SELECT COUNT(*) AS c FROM shops ${excludedShopsClause}`).get() as { c: number }
+    ).c;
     const cardCount = (db.prepare(`SELECT COUNT(*) AS c FROM cards`).get() as { c: number }).c;
     const priceRecordCount = (
-      db.prepare(`SELECT COUNT(*) AS c FROM price_records`).get() as { c: number }
+      db.prepare(`SELECT COUNT(*) AS c FROM price_records pr WHERE 1=1 ${excludedClause}`).get() as {
+        c: number;
+      }
     ).c;
     const lastScrapedAt = (
-      db.prepare(`SELECT MAX(scraped_at) AS m FROM price_records`).get() as { m: string | null }
+      db
+        .prepare(`SELECT MAX(pr.scraped_at) AS m FROM price_records pr WHERE 1=1 ${excludedClause}`)
+        .get() as { m: string | null }
     ).m;
     return { shopCount, cardCount, priceRecordCount, lastScrapedAt };
   }
@@ -407,7 +437,7 @@ export function getStats(series?: string): Stats {
       .prepare(
         `SELECT COUNT(DISTINCT pr.shop_id) AS c
          FROM price_records pr JOIN cards c ON c.id = pr.card_id
-         WHERE c.series = ?`
+         WHERE c.series = ? ${excludedClause}`
       )
       .get(series) as { c: number }
   ).c;
@@ -416,7 +446,7 @@ export function getStats(series?: string): Stats {
       .prepare(
         `SELECT COUNT(*) AS c
          FROM price_records pr JOIN cards c ON c.id = pr.card_id
-         WHERE c.series = ?`
+         WHERE c.series = ? ${excludedClause}`
       )
       .get(series) as { c: number }
   ).c;
@@ -425,7 +455,7 @@ export function getStats(series?: string): Stats {
       .prepare(
         `SELECT MAX(pr.scraped_at) AS m
          FROM price_records pr JOIN cards c ON c.id = pr.card_id
-         WHERE c.series = ?`
+         WHERE c.series = ? ${excludedClause}`
       )
       .get(series) as { m: string | null }
   ).m;

@@ -10,9 +10,7 @@ import { createOtachuScraper, otachuScraper } from "./scrapers/otachu.js";
 import { surugayaScraper } from "./scrapers/surugaya.js";
 import { toretokuScraper } from "./scrapers/toretoku.js";
 import { yellowSubmarineYugiohScraper } from "./scrapers/yellowsubmarine.js";
-import { yuyuteiScraper } from "./scrapers/yuyutei.js";
 import type { ShopScraper } from "./types.js";
-import { discoverYuyuteiSetUrls } from "./yuyutei-discovery.js";
 
 const otachu2Scraper = createOtachuScraper("otachu2", "おたちゅう。秋葉原2号店");
 
@@ -221,24 +219,12 @@ export const dynamicScrapeTargets: DynamicScrapeTarget[] = [
   },
 
   // --- 宅配買取(全国) 2026-07-27追加 ---
-  {
-    scraper: yuyuteiScraper,
-    shopUrl: "https://yuyu-tei.jp",
-    series: "遊戯王",
-    discoverPages: () => discoverYuyuteiSetUrls("ygo"),
-  },
-  {
-    scraper: yuyuteiScraper,
-    shopUrl: "https://yuyu-tei.jp",
-    series: "ワンピースカード",
-    discoverPages: () => discoverYuyuteiSetUrls("opc"),
-  },
-  {
-    scraper: yuyuteiScraper,
-    shopUrl: "https://yuyu-tei.jp",
-    series: "ポケモンカード",
-    discoverPages: () => discoverYuyuteiSetUrls("poc"),
-  },
+  // 遊々亭(yuyu-tei.jp)は2026-07-28〜30の3日連続でGitHub Actions実行時のみ
+  // discoverページ取得が403で失敗(ローカル/手動実行では毎回成功)。同一User-Agent
+  // でランナー側だけ拒否されており、GitHub ActionsのランナーIPレンジに対する
+  // ブロックと判断。README「対応を見送った店舗」の他店(カードラボ等)と同じ
+  // 「技術的な検知回避はしない」方針に基づき、自動スクレイプ対象からは除外。
+  // src/scrapers/yuyutei.ts・src/yuyutei-discovery.tsは手動実行用に残置。
   {
     scraper: hobbystationScraper,
     shopUrl: "https://www.hobbystation-single.jp",

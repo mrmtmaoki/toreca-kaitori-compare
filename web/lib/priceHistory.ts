@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { getDb, getExcludedShopDbIds } from "./db";
 import { toIsoDate, type PriceEvent } from "./priceTrend";
 
 // All SQL "day" bucketing here is JST (UTC+9), not UTC — see toIsoDate's doc
@@ -49,11 +49,13 @@ function median(values: number[]): number {
  */
 export function getCardPriceHistory(cardId: number, series: string): PriceEvent[] {
   const db = getDb();
+  const excludedIds = getExcludedShopDbIds(db);
+  const excludedClause = excludedIds.length > 0 ? `AND shop_id NOT IN (${excludedIds.join(",")})` : "";
 
   const records = db
     .prepare(
       `SELECT shop_id AS shopId, price, date(scraped_at, '${JST_OFFSET_SQL}') AS day
-       FROM price_records WHERE card_id = ? ORDER BY scraped_at`
+       FROM price_records WHERE card_id = ? ${excludedClause} ORDER BY scraped_at`
     )
     .all(cardId) as { shopId: number; price: number; day: string }[];
 

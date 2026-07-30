@@ -78,13 +78,6 @@ export const SHOPS: ShopInfo[] = [
     area: "秋葉原",
   },
   {
-    id: "yuyutei",
-    name: "遊々亭",
-    url: "https://yuyu-tei.jp",
-    description: "全国対応の宅配買取・通販を行うトレーディングカード専門店。",
-    area: "宅配",
-  },
-  {
     id: "hobbystation",
     name: "ホビーステーション",
     url: "https://www.hobbystation-single.jp",
@@ -99,3 +92,14 @@ export const SHOPS: ShopInfo[] = [
     area: "宅配",
   },
 ];
+
+/**
+ * Shops no longer scraped but whose historical price_records/scrape_runs
+ * rows are kept in the DB rather than deleted. Excluded here (not just
+ * dropped from SHOPS above) so every price query in web/lib/db.ts,
+ * topMovers.ts, and priceHistory.ts filters them out too — otherwise a
+ * price frozen at whatever it was on the last successful scrape would keep
+ * silently counting as "current" forever. See README's
+ * "対応を見送った店舗" for why each entry stopped being scraped.
+ */
+export const EXCLUDED_SHOP_IDS = ["yuyutei"];

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InfoPage, InfoSection } from "../InfoPage";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { SHOPS } from "@/lib/shops";
 
 const title = "よくある質問";
 const description = `${SITE_NAME}の使い方や価格データの精度、対応店舗などについて、よくいただく質問にお答えします。`;
@@ -42,14 +43,14 @@ const faqs: { q: string; a: React.ReactNode; aText: string }[] = [
     q: "対応している店舗はどこですか？",
     a: (
       <>
-        現在9店舗に対応しています。詳しくは
+        現在{SHOPS.length}店舗に対応しています。詳しくは
         <Link href="/shops" className="text-[var(--gold)] hover:underline">
           対応店舗一覧
         </Link>
         をご覧ください。
       </>
     ),
-    aText: "現在9店舗に対応しています。詳しくは対応店舗一覧ページをご覧ください。",
+    aText: `現在${SHOPS.length}店舗に対応しています。詳しくは対応店舗一覧ページをご覧ください。`,
   },
   {
     q: "対応しているカードゲームは何ですか？",

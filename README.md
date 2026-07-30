@@ -35,6 +35,7 @@ npm run scrape
 - **ドラゴンスター** (`buy.dorasuta.jp`): Cloudflareのボット防御(JSチャレンジ)が有効。
 - **BIGMAGIC/BIGWEB** (`mtg.bigweb.co.jp`): 同上、Cloudflare防御が有効。
 - **カードラッシュ・ブックオフ**: 規約で明確に無断使用/営利利用を禁止しているため対象外。
+- **遊々亭** (`src/scrapers/yuyutei.ts`・`src/yuyutei-discovery.ts`、自動スクレイプ対象からは除外): 2026-07-28〜30の3日連続で、GitHub Actions実行時のみdiscoverページ取得が403で失敗(同一User-Agentでのローカル/手動実行では毎回成功)。GitHub ActionsランナーのIPレンジに対するブロックと判断し、他店と同じ方針で自動化は行わない。スクレイパー本体は残してあるので、ローカル環境からの手動更新は今後も可能。
 
 いずれも技術的な検知回避(ステルスプラグイン、ヘッダー偽装など)は行わない方針。
 店舗に直接問い合わせて許可を得られた場合は対応を検討する。

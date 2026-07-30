@@ -1,4 +1,4 @@
-import { getDb, getCardById, type CardSummary } from "./db";
+import { getDb, getCardById, getExcludedShopDbIds, type CardSummary } from "./db";
 import { SERIES_LIST } from "./series";
 
 export interface TopMover {
@@ -61,6 +61,11 @@ function getComparisonCutoff(db: ReturnType<typeof getDb>): string | null {
   return `${earliestJstDay}T14:59:59.999Z`;
 }
 
+function excludedShopClause(db: ReturnType<typeof getDb>): string {
+  const ids = getExcludedShopDbIds(db);
+  return ids.length > 0 ? `AND pr.shop_id NOT IN (${ids.join(",")})` : "";
+}
+
 /** Whether there's at least 2 distinct scrape dates on record — the same
  * gate getTopMoverPerGenre/getTopMoversRanked use internally, exposed
  * directly so callers can decide up front whether to show the real ranking
@@ -84,6 +89,7 @@ export function getTopMoverPerGenre(): TopMover[] | null {
   const db = getDb();
   const cutoff = getComparisonCutoff(db);
   if (!cutoff) return null;
+  const excludedClause = excludedShopClause(db);
 
   const movers: TopMover[] = [];
 
@@ -94,12 +100,13 @@ export function getTopMoverPerGenre(): TopMover[] | null {
            SELECT pr.card_id, pr.shop_id, pr.price,
              ROW_NUMBER() OVER (PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC) AS rn
            FROM price_records pr
+           WHERE 1=1 ${excludedClause}
          ),
          previous_latest AS (
            SELECT pr.card_id, pr.shop_id, pr.price,
              ROW_NUMBER() OVER (PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC) AS rn
            FROM price_records pr
-           WHERE pr.scraped_at <= ?
+           WHERE pr.scraped_at <= ? ${excludedClause}
          )
          SELECT c.id AS card_id, MAX(cl.price) AS current_max, MAX(pl.price) AS previous_max
          FROM cards c
@@ -140,6 +147,7 @@ export function getTopMoversRanked(seriesName: string, direction: "up" | "down",
   const db = getDb();
   const cutoff = getComparisonCutoff(db);
   if (!cutoff) return [];
+  const excludedClause = excludedShopClause(db);
 
   const having = direction === "up" ? "current_max > previous_max" : "current_max < previous_max";
   const orderBy = direction === "up" ? "(current_max - previous_max) DESC" : "(current_max - previous_max) ASC";
