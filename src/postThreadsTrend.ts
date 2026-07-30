@@ -48,16 +48,39 @@ function todayJstLabel(): string {
   return `${jst.getUTCMonth() + 1}/${jst.getUTCDate()}`;
 }
 
-/** Picks the pattern by nearest of the 4 scheduled JST hours (10/14/18/22)
- * to the current run time, so the workflow's 4 cron triggers don't need to
- * pass any input — the script infers "which slot is this" from wall-clock
- * time. `--pattern=risers|fallers|gap|top` overrides this for manual/
- * one-off runs (e.g. `npm run post:threads-trend -- --pattern=risers`). */
+// Maps each of the workflow's 4 schedule triggers (see
+// .github/workflows/threads-post.yml) directly to its pattern, keyed by the
+// exact cron string GitHub reports via `github.event.schedule` /
+// THREADS_SCHEDULE. Deliberately not derived from wall-clock time: GitHub
+// Actions has been delaying this workflow by hours (confirmed via the
+// Actions run history — two runs meant for the 18:10/22:10 JST slots both
+// landed between 00:00-03:00 JST the next day, under 2 hours apart), and a
+// wall-clock "nearest of the 4 hours" guess made both resolve to the same
+// pattern, posting near-duplicate content far closer together than the
+// intended 4-hour cadence.
+const SCHEDULE_PATTERNS: Record<string, Pattern> = {
+  "10 1 * * *": "risers", // 10:00 JST
+  "10 5 * * *": "fallers", // 14:00 JST
+  "10 9 * * *": "gap", // 18:00 JST
+  "10 13 * * *": "top", // 22:00 JST
+};
+
+/** `--pattern=risers|fallers|gap|top` overrides everything below, for manual/
+ * one-off runs (e.g. `npm run post:threads-trend -- --pattern=risers`).
+ * Otherwise uses THREADS_SCHEDULE (see SCHEDULE_PATTERNS above) when this run
+ * was triggered by one of the 4 known crons. Falls back to guessing from the
+ * nearest of the 4 JST hours only when neither is available (e.g. a manual
+ * workflow_dispatch run with no --pattern, or local testing) — a rough
+ * approximation that's fine there since duplicate-post risk only exists for
+ * scheduled runs. */
 function pickPattern(): Pattern {
   const override = process.argv.find((a) => a.startsWith("--pattern="))?.slice("--pattern=".length);
   if (override === "risers" || override === "fallers" || override === "gap" || override === "top") {
     return override;
   }
+
+  const scheduled = SCHEDULE_PATTERNS[process.env.THREADS_SCHEDULE ?? ""];
+  if (scheduled) return scheduled;
 
   const now = new Date();
   const jstHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();

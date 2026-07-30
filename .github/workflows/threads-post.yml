@@ -28,3 +28,9 @@ jobs:
       - run: npm run post:threads-trend
         env:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          # The exact cron string that triggered this run (e.g. "10 1 * * *"),
+          # empty for workflow_dispatch. src/postThreadsTrend.ts maps this
+          # directly to a pattern instead of guessing from wall-clock time —
+          # see that file's pickPattern() for why wall-clock guessing broke
+          # under GitHub's multi-hour scheduling delays.
+          THREADS_SCHEDULE: ${{ github.event.schedule }}
