@@ -63,7 +63,10 @@ export default function TrendingTabs({
                   {card.changePercent.toFixed(1)}%
                 </span>
               </div>
-              <TrendCard name={card.name} sub={card.sub} events={card.events} />
+              {/* "1w" matches web/lib/topMovers.ts's TARGET_WINDOW_DAYS — see
+                  TrendCard's defaultPeriod doc comment for why these must
+                  agree. */}
+              <TrendCard name={card.name} sub={card.sub} events={card.events} defaultPeriod="1w" />
             </Link>
           ))}
         </div>

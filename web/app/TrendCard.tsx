@@ -13,12 +13,23 @@ export default function TrendCard({
   name,
   sub,
   events,
+  defaultPeriod,
 }: {
   name: string;
   sub: string;
   events: PriceEvent[];
+  /** Overrides pickDefaultPeriod's own auto-picked starting period. Pass this
+   * wherever the card is shown alongside a riser/faller ranking (see
+   * web/app/TrendingTabs.tsx) so the chart's own up/down color and the
+   * ranking that placed it there are always computed over the same window
+   * — web/lib/topMovers.ts's TARGET_WINDOW_DAYS — instead of potentially
+   * disagreeing (confirmed live 2026-07-31: a card ranked as a riser over
+   * topMovers' window while this chart, defaulting to a different one,
+   * rendered it falling). Card-detail-page usage leaves this unset, since
+   * there's no ranking there to stay in sync with. */
+  defaultPeriod?: TrendPeriodKey;
 }) {
-  const [period, setPeriod] = useState<TrendPeriodKey>(() => pickDefaultPeriod(events));
+  const [period, setPeriod] = useState<TrendPeriodKey>(() => defaultPeriod ?? pickDefaultPeriod(events));
   const [hovered, setHovered] = useState<PriceEvent | null>(null);
   const data = useMemo(() => resamplePriceTrend(events, period), [events, period]);
 

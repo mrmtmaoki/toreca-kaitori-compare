@@ -7,8 +7,8 @@
  * account, not about posting fresher data each time.
  *
  * Patterns:
- *   1. 急騰トレカ (risers)   — biggest gainer per genre vs ~30 days ago
- *   2. 急落トレカ (fallers)  — biggest faller per genre vs ~30 days ago
+ *   1. 急騰トレカ (risers)   — biggest gainer per genre vs ~7 days ago
+ *   2. 急落トレカ (fallers)  — biggest faller per genre vs ~7 days ago
  *   3. 価格差ランキング       — biggest cross-shop price spread per genre,
  *      safety-filtered (>=3 shops, <=10x ratio) since anything wider is far
  *      more likely a card-matching bug than a real market gap (see
@@ -26,6 +26,9 @@
  * plain SQL (duplicated, not imported, since this runs standalone via
  * GitHub Actions, not inside the Next.js app — see that file's comments for
  * why the cutoff is JST-clamped and why the earliest-day fallback exists).
+ * TARGET_WINDOW_DAYS below must stay equal to that file's own constant —
+ * otherwise a Threads post could announce a "riser" the website's own
+ * /trending page (ranked over a different window) doesn't agree is one.
  *
  * Requires THREADS_ACCESS_TOKEN in the environment (a long-lived Threads
  * API token; GitHub Actions injects it from the repo's THREADS_ACCESS_TOKEN
@@ -36,7 +39,7 @@ import { openDb } from "./db.js";
 
 const SITE_URL = "https://kaitori-radar.netlify.app";
 const JST_OFFSET_SQL = "+9 hours";
-const TARGET_WINDOW_DAYS = 30;
+const TARGET_WINDOW_DAYS = 7;
 const HASHTAGS = "#トレカ #遊戯王 #ワンピースカード #ポケモンカード #トレカ買取";
 
 const SERIES = [
@@ -124,9 +127,15 @@ function getComparisonCutoff(db: ReturnType<typeof openDb>): string | null {
 
   if (!earliest || distinctDates < 2) return null;
 
-  const targetCutoff = new Date();
-  targetCutoff.setDate(targetCutoff.getDate() - TARGET_WINDOW_DAYS);
-  const targetCutoffIso = targetCutoff.toISOString();
+  // End of the JST calendar day exactly TARGET_WINDOW_DAYS-1 ago, not a raw
+  // "now minus N*24h" instant — see web/lib/topMovers.ts's getComparisonCutoff
+  // for why (must stay in sync with that file's copy of this function).
+  const targetJstDay = (
+    db
+      .prepare(`SELECT date(?, '${JST_OFFSET_SQL}', '-${TARGET_WINDOW_DAYS - 1} days') AS d`)
+      .get(new Date().toISOString()) as { d: string }
+  ).d;
+  const targetCutoffIso = `${targetJstDay}T14:59:59.999Z`;
   if (targetCutoffIso > earliest) return targetCutoffIso;
 
   const earliestJstDay = (

@@ -9,7 +9,19 @@ export interface TopMover {
   changePercent: number;
 }
 
-const TARGET_WINDOW_DAYS = 30;
+// Must match web/app/TrendingTabs.tsx's TrendCard defaultPeriod="1w" (and
+// src/postThreadsTrend.ts's own copy of this constant) — this is the window
+// "急上昇/急降下" ranks by, so the chart shown alongside each ranked card,
+// and the Threads posts announcing the same ranking, need to agree with it
+// or the same mismatch this constant fixed (a card ranked as a riser here
+// while its own chart, drawn over a different window, showed it falling —
+// confirmed live 2026-07-31) just comes back under a different window size.
+// Was 30 days; narrowed to 7 so "急上昇" actually means "moved this week",
+// not "drifted up sometime in the last month" — the tradeoff is a noisier
+// ranking while real scrape history is still only ~2 weeks deep and shop
+// coverage gaps (e.g. 遊々亭's GitHub Actions blocking, see README) can
+// skew a single week more than they'd skew a month.
+const TARGET_WINDOW_DAYS = 7;
 // Day bucketing here must match web/lib/priceHistory.ts's JST (UTC+9)
 // convention — this site and its shops are Japan-only, and the daily scrape
 // cron runs ~05:05 JST (still the *previous* UTC calendar day). Using raw
@@ -40,9 +52,24 @@ function getComparisonCutoff(db: ReturnType<typeof getDb>): string | null {
 
   if (!earliest || distinctDates < 2) return null;
 
-  const targetCutoff = new Date();
-  targetCutoff.setDate(targetCutoff.getDate() - TARGET_WINDOW_DAYS);
-  const targetCutoffIso = targetCutoff.toISOString();
+  // End of the JST calendar day exactly TARGET_WINDOW_DAYS-1 ago — i.e. end
+  // of the *first* day of the N-day window web/lib/priceTrend.ts's "1w"
+  // resample displays (a window of N inclusive days runs from today-(N-1)
+  // through today, see resamplePriceTrend), not end of the day before that
+  // window starts. getCardPriceHistory buckets by JST calendar day, so its
+  // first visible day's value already reflects any change that happened
+  // *during* that day, not just what was true at its start — cutting off
+  // one day earlier than this compared against the pre-change value while
+  // the chart's first point already showed the post-change one, disagreeing
+  // whenever a price changed on exactly that boundary day (confirmed live
+  // 2026-07-31 on cards whose chart looked flat over the visible week while
+  // still ranked as a mover).
+  const targetJstDay = (
+    db
+      .prepare(`SELECT date(?, '${JST_OFFSET_SQL}', '-${TARGET_WINDOW_DAYS - 1} days') AS d`)
+      .get(new Date().toISOString()) as { d: string }
+  ).d;
+  const targetCutoffIso = `${targetJstDay}T14:59:59.999Z`;
   if (targetCutoffIso > earliest) return targetCutoffIso;
 
   // Clamping to the exact earliest millisecond-precision timestamp (instead
@@ -80,7 +107,7 @@ export function hasMultiDayHistory(): boolean {
  * than that actually exists, against the very first snapshot on record, so
  * this starts showing a real (if short-window) comparison as soon as a
  * second day of scrape data lands, rather than staying empty until a full
- * 30 days accumulates.
+ * TARGET_WINDOW_DAYS accumulates.
  *
  * Returns null when there's only one scrape date in the whole DB (day one —
  * literally nothing to compare against yet, every card would show 0 change).
@@ -158,12 +185,13 @@ export function getTopMoversRanked(seriesName: string, direction: "up" | "down",
          SELECT pr.card_id, pr.shop_id, pr.price,
            ROW_NUMBER() OVER (PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC) AS rn
          FROM price_records pr
+         WHERE 1=1 ${excludedClause}
        ),
        previous_latest AS (
          SELECT pr.card_id, pr.shop_id, pr.price,
            ROW_NUMBER() OVER (PARTITION BY pr.shop_id, pr.card_id ORDER BY pr.scraped_at DESC) AS rn
          FROM price_records pr
-         WHERE pr.scraped_at <= ?
+         WHERE pr.scraped_at <= ? ${excludedClause}
        )
        SELECT c.id AS card_id, MAX(cl.price) AS current_max, MAX(pl.price) AS previous_max
        FROM cards c
