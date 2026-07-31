@@ -9,6 +9,15 @@ export interface PriceTrendPoint {
   confirmed?: boolean;
 }
 
+// One-time visual cleanup, not a rolling "today" — every point up through
+// this fixed date renders solid regardless of `confirmed`, since too much
+// of the chart's history was rendering dashed while coverage gaps (e.g.
+// 遊々亭's GitHub Actions blocking, see README) were common, reading as
+// "broken" rather than "unconfirmed". From 2026-08-01 onward, a genuinely
+// unconfirmed point dashes normally again — this cutoff must NOT be bumped
+// forward over time (that would just re-hide future real gaps).
+const DASH_CUTOFF_DATE = "2026-07-31";
+
 const WIDTH = 800;
 const HEIGHT = 300;
 const PAD_LEFT = 56;
@@ -59,19 +68,21 @@ export default function PriceTrendChart({
 
     // The max-price line is split into per-segment paths, not one continuous
     // path, so a segment can render dashed when it ends on an unconfirmed
-    // point (see PriceEvent.confirmed in web/lib/priceTrend.ts). Only the
-    // *destination* point's confirmed status matters here, not the starting
-    // point — a segment represents "the line moved to this new value", and
-    // that move is trustworthy exactly when the new value is; whether the
-    // earlier point was itself independently reconfirmed that day is a
-    // separate fact already reflected in the *previous* segment's styling.
-    // (Requiring both endpoints confirmed was a real bug: it dashed a
-    // segment showing a genuine, confirmed price rise just because the
-    // pre-rise starting point happened to be an unconfirmed carry-forward —
-    // confirmed 2026-07-25 via a real card.)
+    // point (see PriceEvent.confirmed in web/lib/priceTrend.ts) dated after
+    // DASH_CUTOFF_DATE (see that constant's comment for why points up
+    // through it are always solid instead). Only the *destination* point's
+    // confirmed status matters here, not the starting point — a segment
+    // represents "the line moved to this new value", and that move is
+    // trustworthy exactly when the new value is; whether the earlier point
+    // was itself independently reconfirmed that day is a separate fact
+    // already reflected in the *previous* segment's styling. (Requiring
+    // both endpoints confirmed was a real bug: it dashed a segment showing
+    // a genuine, confirmed price rise just because the pre-rise starting
+    // point happened to be an unconfirmed carry-forward — confirmed
+    // 2026-07-25 via a real card.)
     const maxSegments = data.slice(1).map((d, i) => ({
       d: `M${xFor(i)},${yFor(data[i].maxPrice)} L${xFor(i + 1)},${yFor(d.maxPrice)}`,
-      dashed: d.confirmed === false,
+      dashed: d.confirmed === false && d.date > DASH_CUTOFF_DATE,
     }));
 
     const maxPath = buildPath("maxPrice");
