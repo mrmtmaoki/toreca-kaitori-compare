@@ -296,6 +296,20 @@ export interface SetOption {
   count: number;
 }
 
+// Shared with app/[series]/set/[code]/page.tsx and app/[series]/page.tsx's
+// "セットから探す" links: a set below this size is thin, near-duplicate
+// content not worth its own crawlable page, so both "should this set get a
+// link" and "does this set's page exist" need to agree on the same cutoff.
+export const MIN_SET_PAGE_SIZE = 5;
+
+// Set-code browsing pages only make sense for series whose card_number
+// values actually follow a "SET-number" shape (see extractSetCode below).
+// ポケモンカード's card_number data doesn't (e.g. "001/010", not
+// "SET-001") — grouping it the same way would produce mostly garbage,
+// near-duplicate groupings instead of real sets, so it's excluded here
+// rather than in every caller.
+export const SET_BROWSABLE_SERIES = ["遊戯王", "ワンピースカード"];
+
 /** Distinct sets for a series, most-populated first, for a filter dropdown. */
 export function listSetOptions(series: string): SetOption[] {
   const db = getDb();

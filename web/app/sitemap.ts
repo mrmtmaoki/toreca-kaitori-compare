@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 import { SERIES_LIST } from "@/lib/series";
-import { listAllCardRefs } from "@/lib/db";
+import { listAllCardRefs, listSetOptions, MIN_SET_PAGE_SIZE, SET_BROWSABLE_SERIES } from "@/lib/db";
 import { CARDS_PER_CHUNK, totalSitemapIds } from "@/lib/sitemapChunks";
 
 // Individual card pages (/[series]/[cardId]) are real, valuable long-tail
@@ -29,6 +29,24 @@ export default async function sitemap(props: { id: Promise<string> }): Promise<M
   const numericId = Number(id);
 
   if (numericId === 0) {
+    // Set-browsing pages (/[series]/set/[code]) — same MIN_SET_PAGE_SIZE
+    // cutoff the pages themselves 404 below, and same series restriction
+    // (see SET_BROWSABLE_SERIES) so nothing listed here 404s. A few hundred
+    // extra URLs, small enough to fold into this "static/structural pages"
+    // chunk rather than needing its own.
+    const setPages = SET_BROWSABLE_SERIES.flatMap((seriesName) => {
+      const slug = seriesSlugByName.get(seriesName);
+      if (!slug) return [];
+      return listSetOptions(seriesName)
+        .filter((s) => s.count >= MIN_SET_PAGE_SIZE)
+        .map((s) => ({
+          url: `${SITE_URL}/${slug}/set/${s.code}`,
+          lastModified,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        }));
+    });
+
     return [
       { url: SITE_URL, lastModified, changeFrequency: "daily", priority: 1 },
       { url: `${SITE_URL}/trending`, lastModified, changeFrequency: "daily", priority: 0.9 },
@@ -44,6 +62,7 @@ export default async function sitemap(props: { id: Promise<string> }): Promise<M
       { url: `${SITE_URL}/contact`, lastModified, changeFrequency: "yearly", priority: 0.4 },
       { url: `${SITE_URL}/privacy`, lastModified, changeFrequency: "yearly", priority: 0.3 },
       { url: `${SITE_URL}/terms`, lastModified, changeFrequency: "yearly", priority: 0.3 },
+      ...setPages,
     ];
   }
 

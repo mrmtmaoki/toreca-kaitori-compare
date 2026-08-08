@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getStats, listColorOptions, listPokemonTypeOptions, listSetOptions, topCards } from "@/lib/db";
+import {
+  getStats,
+  listColorOptions,
+  listPokemonTypeOptions,
+  listSetOptions,
+  MIN_SET_PAGE_SIZE,
+  SET_BROWSABLE_SERIES,
+  topCards,
+} from "@/lib/db";
 import { getSeriesBySlug, SERIES_LIST } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import CardExplorer from "../CardExplorer";
@@ -62,6 +70,16 @@ export default async function SeriesPage({
   const colorOptions = series.name === "ワンピースカード" ? listColorOptions(series.name) : undefined;
   const typeOptions = series.name === "ポケモンカード" ? listPokemonTypeOptions(series.name) : undefined;
 
+  // Real <Link>s to /[series]/set/[code], not the CardExplorer search
+  // filter above (which only ever produces a client-side fetch, invisible
+  // to crawlers) — this is the crawl path into the tens of thousands of
+  // card pages that used to be reachable only via sitemap.xml, with no
+  // internal link pointing at them at all. Same MIN_SET_PAGE_SIZE cutoff
+  // the set page itself 404s below, so every link here resolves.
+  const browsableSets = SET_BROWSABLE_SERIES.includes(series.name)
+    ? setOptions.filter((s) => s.count >= MIN_SET_PAGE_SIZE)
+    : [];
+
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -114,6 +132,24 @@ export default async function SeriesPage({
           cardCount={stats.cardCount}
           lastScrapedAt={stats.lastScrapedAt}
         />
+
+        {browsableSets.length > 0 && (
+          <div className="mt-6">
+            <h2 className="mb-2 text-xs font-bold tracking-wide text-[var(--ink-soft)]">セットから探す</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {browsableSets.map((s) => (
+                <Link
+                  key={s.code}
+                  href={`/${series.slug}/set/${s.code}`}
+                  className="mono rounded-full border border-[var(--line)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--ink-soft)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
+                >
+                  {s.code}
+                  <span className="ml-1 opacity-60">({s.count})</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <CardExplorer

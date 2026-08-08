@@ -185,7 +185,7 @@ export default function CardExplorer({
   );
 }
 
-function CardTile({ card, series }: { card: CardSummary; series: string }) {
+export function CardTile({ card, series }: { card: CardSummary; series: string }) {
   const [expanded, setExpanded] = useState(false);
   const visiblePrices = expanded ? card.prices : card.prices.slice(0, 3);
   const spread = card.maxPrice - card.minPrice;

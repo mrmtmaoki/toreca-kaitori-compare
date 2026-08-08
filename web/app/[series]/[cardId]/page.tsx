@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCardById } from "@/lib/db";
+import { extractSetCode, getCardById, MIN_SET_PAGE_SIZE, SET_BROWSABLE_SERIES, topCards } from "@/lib/db";
 import { getCardPriceHistory } from "@/lib/priceHistory";
 import { getSeriesBySlug } from "@/lib/series";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { CardThumb } from "../../CardExplorer";
+import { CardThumb, CardTile } from "../../CardExplorer";
 import ShareButtons from "../../ShareButtons";
 import TrendCard from "../../TrendCard";
 import AffiliateBanner from "../../AffiliateBanner";
@@ -68,6 +68,23 @@ export default async function CardDetailPage({
   const { series, card } = resolved;
 
   const events = getCardPriceHistory(card.id, series.name);
+
+  // Lateral links between card pages, same idea as app/[series]/page.tsx's
+  // "セットから探す" — a handful of same-set neighbors gives Google (and
+  // users) a crawlable path from one card page to the next, instead of every
+  // card being reachable only via sitemap.xml with no internal link pointing
+  // at it. Same series restriction as the set-browsing pages themselves
+  // (see SET_BROWSABLE_SERIES) since ポケモンカード's card_number doesn't
+  // group into real sets.
+  const setCode = card.cardNumber ? extractSetCode(card.cardNumber) : "";
+  const setCards =
+    setCode && SET_BROWSABLE_SERIES.includes(series.name)
+      ? topCards("shops_desc", Number.MAX_SAFE_INTEGER, series.name, setCode)
+      : [];
+  const relatedCards = setCards.filter((c) => c.id !== card.id).slice(0, 12);
+  // Matches the set page's own MIN_SET_PAGE_SIZE cutoff — don't link to
+  // "セットの他のカードを見る" when that page would itself 404.
+  const setPageExists = setCards.length >= MIN_SET_PAGE_SIZE;
 
   // Product/AggregateOffer with businessFunction=Buy (GoodRelations vocabulary)
   // explicitly marks this as a buyback quote — "shops will pay you this much
@@ -168,6 +185,27 @@ export default async function CardDetailPage({
           })}
         </ul>
       </section>
+
+      {relatedCards.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-[var(--ink-soft)]">同じセットの他のカード({setCode})</h2>
+            {setPageExists && (
+              <Link
+                href={`/${series.slug}/set/${setCode}`}
+                className="mono text-xs text-[var(--gold)] hover:underline"
+              >
+                全{setCards.length}件を見る →
+              </Link>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {relatedCards.map((c) => (
+              <CardTile key={c.id} card={c} series={series.slug} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <AffiliateBanner />
     </main>
