@@ -255,15 +255,26 @@ export interface CardRef {
 }
 
 /** Lightweight id+series listing for sitemap generation — every card that
- * has at least one price record, cheap to run even at tens of thousands of
- * rows since it skips the price-join used by the card-detail queries above. */
+ * has at least one price record from a non-excluded shop, cheap to run even
+ * at tens of thousands of rows since it skips the price-join used by the
+ * card-detail queries above.
+ *
+ * Must apply the same EXCLUDED_SHOP_IDS filter getCardById does (via
+ * latestPricesCte) — without it, a card whose only ever price records came
+ * from an excluded shop (e.g. 遊々亭, see EXCLUDED_SHOP_IDS) still passed
+ * this EXISTS check and stayed listed in the sitemap, but getCardById's
+ * shop-filtered join found nothing for it and 404'd. Confirmed live
+ * 2026-08-08: 46,027 遊々亭-only cards sitemapped-but-404ing, matching a
+ * Search Console "indexed page not found (404)" warning. */
 export function listAllCardRefs(): CardRef[] {
   const db = getDb();
+  const excludedIds = getExcludedShopDbIds(db);
+  const excludedClause = excludedIds.length > 0 ? `AND pr.shop_id NOT IN (${excludedIds.join(",")})` : "";
   return db
     .prepare(
       `SELECT DISTINCT c.id, c.series
        FROM cards c
-       WHERE EXISTS (SELECT 1 FROM price_records pr WHERE pr.card_id = c.id)
+       WHERE EXISTS (SELECT 1 FROM price_records pr WHERE pr.card_id = c.id ${excludedClause})
        ORDER BY c.id`
     )
     .all() as unknown as CardRef[];
